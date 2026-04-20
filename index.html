@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Sopa de Letras</title>
+<title>Sopa de Letras PRO</title>
 
 <style>
   body {
@@ -14,6 +14,30 @@
     display: flex;
     justify-content: center;
     align-items: center;
+    overflow-x: hidden;
+  }
+
+  body::before, body::after {
+    content: "";
+    position: fixed;
+    border-radius: 50%;
+    z-index: -1;
+  }
+
+  body::before {
+    width: 280px;
+    height: 280px;
+    background: #bfe6c2;
+    top: -90px;
+    left: -90px;
+  }
+
+  body::after {
+    width: 320px;
+    height: 320px;
+    background: #8fd19e;
+    bottom: -120px;
+    right: -120px;
   }
 
   .contenedor {
@@ -35,6 +59,7 @@
     width: 90vw;
     max-width: 500px;
     touch-action: none;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.15);
   }
 
   #info {
@@ -72,6 +97,24 @@
     50% { transform: translateX(6px); }
     75% { transform: translateX(-6px); }
   }
+
+  /* 🎉 confeti */
+  .confeti {
+    position: fixed;
+    width: 8px;
+    height: 8px;
+    background: red;
+    top: -10px;
+    animation: caer 2s linear forwards;
+    z-index: 9999;
+  }
+
+  @keyframes caer {
+    to {
+      transform: translateY(100vh) rotate(360deg);
+      opacity: 0;
+    }
+  }
 </style>
 </head>
 
@@ -106,23 +149,57 @@ const palabras = [
   "CARBONO","NOFERROSOS","FUSION","MEZCLA","HOMOGENEA"
 ];
 
-// 🔥 canvas responsive HD
-function ajustar() {
+// 🔊 audio simple
+const audio = new (window.AudioContext || window.webkitAudioContext)();
+
+function beep(freq, time){
+  let o = audio.createOscillator();
+  let g = audio.createGain();
+
+  o.frequency.value = freq;
+  o.connect(g);
+  g.connect(audio.destination);
+
+  g.gain.setValueAtTime(0.2,audio.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.001,audio.currentTime+time);
+
+  o.start();
+  o.stop(audio.currentTime+time);
+}
+
+const sonidoOK = ()=>{ beep(700,0.1); setTimeout(()=>beep(1000,0.1),100); }
+const sonidoNO = ()=> beep(150,0.2);
+
+// 🎉 confeti
+function confeti(){
+  for(let i=0;i<80;i++){
+    let c=document.createElement("div");
+    c.className="confeti";
+    c.style.left=Math.random()*100+"vw";
+    c.style.background=`hsl(${Math.random()*360},70%,60%)`;
+    c.style.animationDuration=(1+Math.random()*2)+"s";
+    document.body.appendChild(c);
+    setTimeout(()=>c.remove(),2500);
+  }
+}
+
+// canvas HD
+function ajustar(){
   const size = Math.min(window.innerWidth * 0.9, 500);
   const dpr = window.devicePixelRatio || 1;
 
-  canvas.style.width = size + "px";
-  canvas.style.height = size + "px";
+  canvas.style.width = size+"px";
+  canvas.style.height = size+"px";
 
-  canvas.width = size * dpr;
-  canvas.height = size * dpr;
+  canvas.width = size*dpr;
+  canvas.height = size*dpr;
 
   ctx.setTransform(dpr,0,0,dpr,0,0);
 
   dibujar();
 }
 
-window.addEventListener("resize", ajustar);
+window.addEventListener("resize",ajustar);
 ajustar();
 
 function sizeCelda(){
@@ -130,14 +207,11 @@ function sizeCelda(){
 }
 
 function celda(x,y){
-  const s = sizeCelda();
-  return {
-    fila: Math.floor(y/s),
-    col: Math.floor(x/s)
-  };
+  const s=sizeCelda();
+  return {fila:Math.floor(y/s),col:Math.floor(x/s)};
 }
 
-// 🔥 colocar palabras
+// palabras
 function colocar(p){
   const dirs=[{df:0,dc:1},{df:1,dc:0},{df:1,dc:1},{df:-1,dc:1}];
   let ok=false;
@@ -152,8 +226,7 @@ function colocar(p){
     for(let i=0;i<p.length;i++){
       let nf=f+d.df*i,nc=c+d.dc*i;
       if(nf<0||nc<0||nf>=tamaño||nc>=tamaño||grid[nf][nc]!=""){
-        posible=false;
-        break;
+        posible=false; break;
       }
     }
 
@@ -182,11 +255,11 @@ rellenar();
 
 // 🎨 dibujar
 function dibujar(){
-  const s = sizeCelda();
+  const s=sizeCelda();
 
   ctx.clearRect(0,0,canvas.width,canvas.height);
 
-  ctx.font = (s*0.6)+"px Arial";
+  ctx.font=(s*0.6)+"px Arial";
   ctx.textAlign="center";
   ctx.textBaseline="middle";
 
@@ -198,28 +271,19 @@ function dibujar(){
     }
   }
 
-  // verdes
   ctx.fillStyle="rgba(0,200,100,0.4)";
-  marcadas.forEach(c=>{
-    ctx.fillRect(c.col*s,c.fila*s,s,s);
-  });
+  marcadas.forEach(c=>ctx.fillRect(c.col*s,c.fila*s,s,s));
 
-  // rojas error
   ctx.fillStyle="rgba(255,0,0,0.4)";
-  error.forEach(c=>{
-    ctx.fillRect(c.col*s,c.fila*s,s,s);
-  });
+  error.forEach(c=>ctx.fillRect(c.col*s,c.fila*s,s,s));
 
-  // 🔵 GUIA AZUL
   if(seleccion.length>0){
     ctx.fillStyle="rgba(0,150,255,0.25)";
-    seleccion.forEach(c=>{
-      ctx.fillRect(c.col*s,c.fila*s,s,s);
-    });
+    seleccion.forEach(c=>ctx.fillRect(c.col*s,c.fila*s,s,s));
   }
 }
 
-// ✔️❌ animación
+// ✔️❌ icono
 function icono(tipo,x,y){
   const d=document.createElement("div");
   d.className="icono";
@@ -230,7 +294,7 @@ function icono(tipo,x,y){
   setTimeout(()=>d.remove(),800);
 }
 
-// interacción
+// interacción tipo app
 let arrastrando=false;
 
 canvas.addEventListener("mousedown",start);
@@ -280,19 +344,23 @@ function end(){
   verificar();
 }
 
-// 🔥 lógica
+// lógica
 function verificar(){
-  let palabra = seleccion.map(c=>grid[c.fila][c.col]).join("");
+  let palabra=seleccion.map(c=>grid[c.fila][c.col]).join("");
 
-  const r = canvas.getBoundingClientRect();
+  const r=canvas.getBoundingClientRect();
 
   if(palabras.includes(palabra) && !encontradas.includes(palabra)){
     encontradas.push(palabra);
     marcadas.push(...seleccion);
-    icono("ok", r.left + r.width/2, r.top + r.height/2);
+
+    sonidoOK();
+    icono("ok",r.left+r.width/2,r.top+r.height/2);
   } else {
     error=[...seleccion];
-    icono("no", r.left + r.width/2, r.top + r.height/2);
+
+    sonidoNO();
+    icono("no",r.left+r.width/2,r.top+r.height/2);
 
     canvas.classList.remove("shake");
     void canvas.offsetWidth;
@@ -302,6 +370,10 @@ function verificar(){
   }
 
   actualizar();
+
+  if(encontradas.length===palabras.length){
+    confeti();
+  }
 
   setTimeout(()=>{
     seleccion=[];
