@@ -6,130 +6,142 @@
 <title>Sopa de Letras PRO</title>
 
 <style>
-  body {
-    margin: 0;
-    font-family: Arial;
-    background: #f5f1e8;
-    min-height: 100vh;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    overflow-x: hidden;
+  body{
+    margin:0;
+    font-family:Arial;
+    background:#f5f1e8;
+    min-height:100vh;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    overflow-x:hidden;
   }
 
-  body::before, body::after {
-    content: "";
-    position: fixed;
-    border-radius: 50%;
-    z-index: -1;
+  body::before,body::after{
+    content:"";
+    position:fixed;
+    border-radius:50%;
+    z-index:-1;
   }
 
-  body::before {
-    width: 280px;
-    height: 280px;
-    background: #bfe6c2;
-    top: -90px;
-    left: -90px;
+  body::before{
+    width:280px;height:280px;
+    background:#bfe6c2;
+    top:-90px;left:-90px;
   }
 
-  body::after {
-    width: 320px;
-    height: 320px;
-    background: #8fd19e;
-    bottom: -120px;
-    right: -120px;
+  body::after{
+    width:320px;height:320px;
+    background:#8fd19e;
+    bottom:-120px;right:-120px;
   }
 
-  .contenedor {
-    text-align: center;
-    width: 100%;
-    padding: 10px;
-    transform: translateY(-10px);
+  .contenedor{
+    text-align:center;
+    width:100%;
+    padding:10px;
+    transform:translateY(-10px);
   }
 
-  h2 {
-    color: #2f5d3a;
-    margin: 10px 0;
+  h2{color:#2f5d3a;margin:10px 0;}
+
+  canvas{
+    border:3px solid #2f5d3a;
+    background:white;
+    border-radius:12px;
+    width:90vw;
+    max-width:500px;
+    touch-action:none;
+    box-shadow:0 10px 25px rgba(0,0,0,0.15);
   }
 
-  canvas {
-    border: 3px solid #2f5d3a;
-    background: white;
-    border-radius: 12px;
-    width: 90vw;
-    max-width: 500px;
-    touch-action: none;
-    box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+  #info{
+    margin-top:10px;
+    font-weight:bold;
+    color:#2f5d3a;
   }
 
-  #info {
-    margin-top: 10px;
-    font-weight: bold;
-    color: #2f5d3a;
+  /* 📋 LISTA SIEMPRE ABAJO Y ALINEADA */
+  #lista{
+    margin-top:10px;
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:4px;
+    font-size:14px;
+    color:#2f5d3a;
+    max-width:500px;
+    margin-left:auto;
+    margin-right:auto;
   }
 
-  #lista {
-    margin-top: 8px;
-    color: #2f5d3a;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    font-size: 14px;
-    gap: 4px;
+  #lista div{
+    text-align:left;
+    padding:2px 6px;
+    word-break:break-word;
   }
 
-  /* ✔️❌ animación */
-  .icono {
-    position: fixed;
-    font-size: 60px;
-    animation: pop 0.8s ease-out forwards;
-    pointer-events: none;
-    z-index: 9999;
+  /* ✔️❌ */
+  .icono{
+    position:fixed;
+    font-size:60px;
+    animation:pop 0.8s ease-out forwards;
+    z-index:9999;
   }
 
-  @keyframes pop {
-    0% { transform: translate(-50%,-50%) scale(0.3); opacity: 0; }
-    40% { opacity: 1; }
-    100% { transform: translate(-50%,-140%) scale(1.2); opacity: 0; }
+  @keyframes pop{
+    0%{transform:translate(-50%,-50%) scale(0.3);opacity:0;}
+    40%{opacity:1;}
+    100%{transform:translate(-50%,-140%) scale(1.2);opacity:0;}
   }
 
-  /* shake error */
-  .shake {
-    animation: shake 0.3s;
+  .shake{animation:shake .3s;}
+  @keyframes shake{
+    25%{transform:translateX(-6px);}
+    50%{transform:translateX(6px);}
+    75%{transform:translateX(-6px);}
   }
 
-  @keyframes shake {
-    25% { transform: translateX(-6px); }
-    50% { transform: translateX(6px); }
-    75% { transform: translateX(-6px); }
+  /* 🎉 GANASTE */
+  #win{
+    position:fixed;
+    top:0;left:0;
+    width:100%;
+    height:100%;
+    background:rgba(0,0,0,0.6);
+    display:none;
+    flex-direction:column;
+    justify-content:center;
+    align-items:center;
+    color:white;
+    font-size:32px;
+    z-index:99999;
+  }
+
+  #win button{
+    margin-top:20px;
+    padding:10px 20px;
+    border:none;
+    border-radius:10px;
+    font-size:16px;
+    background:#2f5d3a;
+    color:white;
   }
 
   /* 🎉 confeti */
-  .confeti {
-    position: fixed;
-    width: 8px;
-    height: 8px;
-    top: -10px;
-    z-index: 9999;
-    animation: caer 2s linear forwards;
+  .confeti{
+    position:fixed;
+    width:8px;
+    height:8px;
+    top:-10px;
+    z-index:9999;
+    animation:fall 2s linear forwards;
   }
 
-  @keyframes caer {
-    to {
-      transform: translateY(100vh) rotate(360deg);
-      opacity: 0;
+  @keyframes fall{
+    to{
+      transform:translateY(100vh) rotate(360deg);
+      opacity:0;
     }
-  }
-
-  /* 🔁 botón reiniciar */
-  #reiniciar {
-    margin-top: 10px;
-    padding: 8px 14px;
-    border: none;
-    border-radius: 8px;
-    background: #2f5d3a;
-    color: white;
-    font-weight: bold;
-    cursor: pointer;
   }
 </style>
 </head>
@@ -142,53 +154,36 @@
 
 <canvas id="canvas"></canvas>
 
-<div id="info">
-🧮 Puntaje: <span id="score">0</span>/9
-</div>
+<div id="info">🧮 Puntaje: <span id="score">0</span>/9</div>
 
 <div id="lista"></div>
 
-<button id="reiniciar" onclick="location.reload()">🔁 Reiniciar</button>
+</div>
 
+<!-- 🎉 pantalla de victoria -->
+<div id="win">
+  🎉 ¡GANASTE! 🎉
+  <button onclick="location.reload()">Reiniciar</button>
 </div>
 
 <script>
-const canvas = document.getElementById("canvas");
-const ctx = canvas.getContext("2d");
+const canvas=document.getElementById("canvas");
+const ctx=canvas.getContext("2d");
 
-const tamaño = 14;
+const tamaño=14;
 
-let grid = Array.from({length:tamaño},()=>Array(tamaño).fill(""));
-let seleccion=[], marcadas=[], error=[];
+let grid=Array.from({length:tamaño},()=>Array(tamaño).fill(""));
+let seleccion=[],marcadas=[],error=[];
 let encontradas=[];
 
-const palabras = [
+const palabras=[
   "ALEACIONES","HIERRO","METAL","FERROSO",
   "CARBONO","NOFERROSOS","FUSION","MEZCLA","HOMOGENEA"
 ];
 
-// 🔊 sonido
-const audio = new (window.AudioContext || window.webkitAudioContext)();
-
-function beep(f,t){
-  let o=audio.createOscillator();
-  let g=audio.createGain();
-
-  o.frequency.value=f;
-  o.connect(g);
-  g.connect(audio.destination);
-
-  g.gain.value=0.2;
-  o.start();
-  setTimeout(()=>o.stop(),t*1000);
-}
-
-const okSound=()=>beep(700,0.1);
-const noSound=()=>beep(150,0.2);
-
-// 🎉 confeti
+// 🔥 confeti
 function confeti(){
-  for(let i=0;i<80;i++){
+  for(let i=0;i<100;i++){
     let d=document.createElement("div");
     d.className="confeti";
     d.style.left=Math.random()*100+"vw";
@@ -201,8 +196,8 @@ function confeti(){
 
 // canvas
 function ajustar(){
-  const size = Math.min(window.innerWidth * 0.9, 500);
-  const dpr = window.devicePixelRatio || 1;
+  const size=Math.min(window.innerWidth*0.9,500);
+  const dpr=window.devicePixelRatio||1;
 
   canvas.style.width=size+"px";
   canvas.style.height=size+"px";
@@ -214,12 +209,11 @@ function ajustar(){
 
   dibujar();
 }
-
 window.addEventListener("resize",ajustar);
 ajustar();
 
 function sizeCelda(){
-  return canvas.width / (window.devicePixelRatio || 1) / tamaño;
+  return canvas.width/(window.devicePixelRatio||1)/tamaño;
 }
 
 function celda(x,y){
@@ -227,7 +221,7 @@ function celda(x,y){
   return {fila:Math.floor(y/s),col:Math.floor(x/s)};
 }
 
-// palabras
+// colocar palabras
 function colocar(p){
   const dirs=[{df:0,dc:1},{df:1,dc:0},{df:1,dc:1},{df:-1,dc:1}];
   let ok=false;
@@ -242,7 +236,7 @@ function colocar(p){
     for(let i=0;i<p.length;i++){
       let nf=f+d.df*i,nc=c+d.dc*i;
       if(nf<0||nc<0||nf>=tamaño||nc>=tamaño||grid[nf][nc]!=""){
-        posible=false; break;
+        posible=false;break;
       }
     }
 
@@ -299,17 +293,6 @@ function dibujar(){
   }
 }
 
-// ✔️❌ animación (ARREGLADO)
-function icono(tipo,x,y){
-  const d=document.createElement("div");
-  d.className="icono";
-  d.innerHTML=tipo==="ok"?"✔️":"❌";
-  d.style.left=x+"px";
-  d.style.top=y+"px";
-  document.body.appendChild(d);
-  setTimeout(()=>d.remove(),800);
-}
-
 // interacción
 let arrastrando=false;
 
@@ -347,8 +330,8 @@ function move(e){
 
     while(true){
       seleccion.push({fila:f,col:col});
-      if(f===c.fila&&col===c.col) break;
-      f+=pf; col+=pc;
+      if(f===c.fila&&col===c.col)break;
+      f+=pf;col+=pc;
     }
   }
 
@@ -360,7 +343,7 @@ function end(){
   verificar();
 }
 
-// lógica
+// verificar CORREGIDO
 function verificar(){
   let palabra=seleccion.map(c=>grid[c.fila][c.col]).join("");
 
@@ -369,27 +352,19 @@ function verificar(){
   if(palabras.includes(palabra) && !encontradas.includes(palabra)){
     encontradas.push(palabra);
     marcadas.push(...seleccion);
-
-    okSound();
-    icono("ok",r.left+r.width/2,r.top+r.height/2);
-
-    if(encontradas.length===palabras.length){
-      confeti();
-    }
-
   } else {
     error=[...seleccion];
-
-    noSound();
-    icono("no",r.left+r.width/2,r.top+r.height/2);
-
     canvas.classList.add("shake");
-    setTimeout(()=>canvas.classList.remove("shake"),400);
-
-    setTimeout(()=>{error=[];dibujar();},500);
+    setTimeout(()=>canvas.classList.remove("shake"),300);
+    setTimeout(()=>{error=[];dibujar();},400);
   }
 
   actualizar();
+
+  if(encontradas.length===palabras.length){
+    confeti();
+    document.getElementById("win").style.display="flex";
+  }
 
   setTimeout(()=>{
     seleccion=[];
@@ -397,7 +372,7 @@ function verificar(){
   },300);
 }
 
-// lista
+// lista alineada
 function actualizar(){
   document.getElementById("lista").innerHTML =
     palabras.map(p=>{
