@@ -8,15 +8,29 @@
 <style>
   body {
     font-family: Arial;
-    text-align: center;
     background: #f5f1e8;
     margin: 0;
     overflow-x: hidden;
+
+    /* 🔥 CENTRADO REAL */
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .contenedor {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    padding: 10px;
   }
 
   h2 {
-    margin-top: 20px;
     color: #2f5d3a;
+    margin: 10px 0;
   }
 
   body::before, body::after {
@@ -91,7 +105,7 @@
     75% { transform: translateX(-6px); }
   }
 
-  /* ✔️ ❌ animación */
+  /* ✔️❌ animación */
   .floating-icon {
     position: fixed;
     font-size: 60px;
@@ -116,6 +130,8 @@
 
 <body>
 
+<div class="contenedor">
+
 <h2>Sopa de Letras 💚</h2>
 
 <canvas id="canvas"></canvas>
@@ -125,6 +141,8 @@
 </div>
 
 <div id="lista"></div>
+
+</div>
 
 <div id="ganaste">
   <div class="celebrar">🎉 ¡GANASTE! 🎉</div>
@@ -137,6 +155,7 @@ const ctx = canvas.getContext("2d");
 
 const tamaño = 14;
 
+// 🔥 CANVAS HD
 function ajustarCanvas() {
   const size = Math.min(window.innerWidth * 0.9, 500);
   const dpr = window.devicePixelRatio || 1;
@@ -167,7 +186,7 @@ let grid = Array.from({length:tamaño},()=>Array(tamaño).fill(""));
 let seleccion=[], marcadas=[], seleccionError=[];
 let arrastrando=false;
 
-// 🔥 iconos ✔️ ❌
+// ✔️❌ iconos
 function mostrarIcono(tipo, x, y) {
   const icon = document.createElement("div");
   icon.className = "floating-icon";
@@ -177,7 +196,6 @@ function mostrarIcono(tipo, x, y) {
   icon.style.top = y + "px";
 
   document.body.appendChild(icon);
-
   setTimeout(() => icon.remove(), 800);
 }
 
@@ -201,8 +219,7 @@ function colocar(p){
 
     if(puede){
       for(let i=0;i<p.length;i++){
-        let nf=f+d.df*i,nc=c+d.dc*i;
-        grid[nf][nc]=p[i];
+        grid[f+d.df*i][c+d.dc*i]=p[i];
       }
       ok=true;
     }
@@ -235,6 +252,7 @@ function dibujar(){
   for(let i=0;i<tamaño;i++){
     for(let j=0;j<tamaño;j++){
       ctx.strokeRect(j*tamañoCelda,i*tamañoCelda,tamañoCelda,tamañoCelda);
+
       ctx.fillStyle="black";
       ctx.fillText(
         grid[i][j],
