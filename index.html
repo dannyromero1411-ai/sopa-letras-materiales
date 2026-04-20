@@ -61,7 +61,6 @@
     color:#2f5d3a;
   }
 
-  /* 📋 LISTA SIEMPRE ABAJO Y ALINEADA */
   #lista{
     margin-top:10px;
     display:grid;
@@ -70,28 +69,12 @@
     font-size:14px;
     color:#2f5d3a;
     max-width:500px;
-    margin-left:auto;
-    margin-right:auto;
+    margin:auto;
   }
 
   #lista div{
     text-align:left;
     padding:2px 6px;
-    word-break:break-word;
-  }
-
-  /* ✔️❌ */
-  .icono{
-    position:fixed;
-    font-size:60px;
-    animation:pop 0.8s ease-out forwards;
-    z-index:9999;
-  }
-
-  @keyframes pop{
-    0%{transform:translate(-50%,-50%) scale(0.3);opacity:0;}
-    40%{opacity:1;}
-    100%{transform:translate(-50%,-140%) scale(1.2);opacity:0;}
   }
 
   .shake{animation:shake .3s;}
@@ -101,7 +84,22 @@
     75%{transform:translateX(-6px);}
   }
 
-  /* 🎉 GANASTE */
+  .confeti{
+    position:fixed;
+    width:8px;
+    height:8px;
+    top:-10px;
+    z-index:9999;
+    animation:fall 2s linear forwards;
+  }
+
+  @keyframes fall{
+    to{
+      transform:translateY(100vh) rotate(360deg);
+      opacity:0;
+    }
+  }
+
   #win{
     position:fixed;
     top:0;left:0;
@@ -122,26 +120,9 @@
     padding:10px 20px;
     border:none;
     border-radius:10px;
-    font-size:16px;
     background:#2f5d3a;
     color:white;
-  }
-
-  /* 🎉 confeti */
-  .confeti{
-    position:fixed;
-    width:8px;
-    height:8px;
-    top:-10px;
-    z-index:9999;
-    animation:fall 2s linear forwards;
-  }
-
-  @keyframes fall{
-    to{
-      transform:translateY(100vh) rotate(360deg);
-      opacity:0;
-    }
+    font-size:16px;
   }
 </style>
 </head>
@@ -160,10 +141,9 @@
 
 </div>
 
-<!-- 🎉 pantalla de victoria -->
 <div id="win">
-  🎉 ¡GANASTE! 🎉
-  <button onclick="location.reload()">Reiniciar</button>
+🎉 ¡GANASTE! 🎉
+<button onclick="location.reload()">Reiniciar</button>
 </div>
 
 <script>
@@ -181,7 +161,38 @@ const palabras=[
   "CARBONO","NOFERROSOS","FUSION","MEZCLA","HOMOGENEA"
 ];
 
-// 🔥 confeti
+
+// 🔊 SONIDO ARREGLADO (MÓVIL COMPATIBLE)
+const audio = new (window.AudioContext || window.webkitAudioContext)();
+
+function beep(freq,time){
+  if(audio.state==="suspended") audio.resume();
+
+  let o=audio.createOscillator();
+  let g=audio.createGain();
+
+  o.frequency.value=freq;
+  o.type="sine";
+
+  o.connect(g);
+  g.connect(audio.destination);
+
+  g.gain.setValueAtTime(0.2,audio.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.001,audio.currentTime+time);
+
+  o.start();
+  o.stop(audio.currentTime+time);
+}
+
+const okSound=()=>{
+  beep(700,0.1);
+  setTimeout(()=>beep(1000,0.1),100);
+};
+
+const noSound=()=>beep(140,0.2);
+
+
+// 🎉 confeti
 function confeti(){
   for(let i=0;i<100;i++){
     let d=document.createElement("div");
@@ -194,7 +205,8 @@ function confeti(){
   }
 }
 
-// canvas
+
+// 📱 canvas responsive
 function ajustar(){
   const size=Math.min(window.innerWidth*0.9,500);
   const dpr=window.devicePixelRatio||1;
@@ -221,7 +233,8 @@ function celda(x,y){
   return {fila:Math.floor(y/s),col:Math.floor(x/s)};
 }
 
-// colocar palabras
+
+// 📌 colocar palabras
 function colocar(p){
   const dirs=[{df:0,dc:1},{df:1,dc:0},{df:1,dc:1},{df:-1,dc:1}];
   let ok=false;
@@ -263,7 +276,8 @@ function rellenar(){
 palabras.forEach(colocar);
 rellenar();
 
-// dibujar
+
+// 🎨 dibujar
 function dibujar(){
   const s=sizeCelda();
 
@@ -293,7 +307,8 @@ function dibujar(){
   }
 }
 
-// interacción
+
+// 🎮 interacción
 let arrastrando=false;
 
 canvas.addEventListener("mousedown",start);
@@ -303,6 +318,7 @@ canvas.addEventListener("mouseup",end);
 canvas.addEventListener("touchstart",start);
 canvas.addEventListener("touchmove",(e)=>{e.preventDefault();move(e);},{passive:false});
 canvas.addEventListener("touchend",end);
+
 
 function start(e){
   arrastrando=true;
@@ -338,24 +354,29 @@ function move(e){
   dibujar();
 }
 
+
 function end(){
   arrastrando=false;
   verificar();
 }
 
-// verificar CORREGIDO
+
+// 🔍 verificar
 function verificar(){
   let palabra=seleccion.map(c=>grid[c.fila][c.col]).join("");
-
-  const r=canvas.getBoundingClientRect();
 
   if(palabras.includes(palabra) && !encontradas.includes(palabra)){
     encontradas.push(palabra);
     marcadas.push(...seleccion);
+
+    okSound();
   } else {
     error=[...seleccion];
+    noSound();
+
     canvas.classList.add("shake");
     setTimeout(()=>canvas.classList.remove("shake"),300);
+
     setTimeout(()=>{error=[];dibujar();},400);
   }
 
@@ -372,7 +393,8 @@ function verificar(){
   },300);
 }
 
-// lista alineada
+
+// 📋 lista
 function actualizar(){
   document.getElementById("lista").innerHTML =
     palabras.map(p=>{
