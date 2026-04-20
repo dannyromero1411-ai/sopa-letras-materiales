@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Sopa de Letras</title>
+<title>Sopa de Letras PRO</title>
 
 <style>
   body{
@@ -84,6 +84,7 @@
     75%{transform:translateX(-6px);}
   }
 
+  /* 🎉 confeti */
   .confeti{
     position:fixed;
     width:8px;
@@ -98,6 +99,21 @@
       transform:translateY(100vh) rotate(360deg);
       opacity:0;
     }
+  }
+
+  /* ✔️❌ ANIMACIÓN RESTAURADA */
+  .icono{
+    position:fixed;
+    font-size:60px;
+    animation:pop 0.7s ease-out forwards;
+    pointer-events:none;
+    z-index:99999;
+  }
+
+  @keyframes pop{
+    0%{transform:translate(-50%,-50%) scale(0.3);opacity:0;}
+    40%{opacity:1;}
+    100%{transform:translate(-50%,-140%) scale(1.2);opacity:0;}
   }
 
   #win{
@@ -162,71 +178,45 @@ const palabras=[
 ];
 
 // 🔊 AUDIO
-const audio = new (window.AudioContext || window.webkitAudioContext)();
+const audio=new (window.AudioContext||window.webkitAudioContext)();
 
-function beep(freq,time,vol=0.5){
+function beep(f,t,v=0.5){
   if(audio.state==="suspended") audio.resume();
 
   let o=audio.createOscillator();
   let g=audio.createGain();
 
-  o.frequency.value=freq;
+  o.frequency.value=f;
   o.type="square";
 
-  g.gain.value=vol;
-  g.gain.setValueAtTime(vol,audio.currentTime);
-  g.gain.exponentialRampToValueAtTime(0.001,audio.currentTime+time);
+  g.gain.value=v;
+  g.gain.setValueAtTime(v,audio.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.001,audio.currentTime+t);
 
   o.connect(g);
   g.connect(audio.destination);
 
   o.start();
-  o.stop(audio.currentTime+time);
+  o.stop(audio.currentTime+t);
 }
 
 // ✔️ correcto
 const okSound=()=>{
   beep(800,0.1,0.6);
   setTimeout(()=>beep(1100,0.1,0.6),100);
-  setTimeout(()=>beep(1400,0.12,0.5),200);
 };
 
-// ❌ ERROR MEJORADO (más fuerte y claro)
+// ❌ error fuerte
 const noSound=()=>{
-  if(audio.state==="suspended") audio.resume();
-
-  let o1=audio.createOscillator();
-  let o2=audio.createOscillator();
-  let g=audio.createGain();
-
-  o1.type="square";
-  o2.type="sawtooth";
-
-  o1.frequency.value=220;
-  o2.frequency.value=110;
-
-  o1.connect(g);
-  o2.connect(g);
-  g.connect(audio.destination);
-
-  g.gain.setValueAtTime(1.2,audio.currentTime);
-  g.gain.exponentialRampToValueAtTime(0.001,audio.currentTime+0.3);
-
-  o1.start();
-  o2.start();
-
-  o1.stop(audio.currentTime+0.3);
-  o2.stop(audio.currentTime+0.3);
+  beep(120,0.25,0.9);
+  setTimeout(()=>beep(90,0.25,0.9),120);
 };
 
-// 🎉 GANAR
+// 🎉 win
 const winSound=()=>{
-  let notas=[600,800,1000,1200,1400,1600];
-
-  notas.forEach((f,i)=>{
+  [600,800,1000,1200,1400,1600].forEach((f,i)=>{
     setTimeout(()=>beep(f,0.12,0.7),i*120);
   });
-
   setTimeout(()=>beep(1800,0.3,0.8),800);
 };
 
@@ -243,7 +233,18 @@ function confeti(){
   }
 }
 
-// 📱 responsive
+// ✔️❌ ANIMACIÓN (RESTAURADA)
+function icono(tipo,x,y){
+  let d=document.createElement("div");
+  d.className="icono";
+  d.innerHTML = tipo==="ok" ? "✔️" : "❌";
+  d.style.left=x+"px";
+  d.style.top=y+"px";
+  document.body.appendChild(d);
+  setTimeout(()=>d.remove(),700);
+}
+
+// 📱 canvas
 function ajustar(){
   const size=Math.min(window.innerWidth*0.9,500);
   const dpr=window.devicePixelRatio||1;
@@ -270,7 +271,7 @@ function celda(x,y){
   return {fila:Math.floor(y/s),col:Math.floor(x/s)};
 }
 
-// colocar palabras
+// colocar
 function colocar(p){
   const dirs=[{df:0,dc:1},{df:1,dc:0},{df:1,dc:1},{df:-1,dc:1}];
   let ok=false;
@@ -396,14 +397,19 @@ function end(){
 function verificar(){
   let palabra=seleccion.map(c=>grid[c.fila][c.col]).join("");
 
+  const r=canvas.getBoundingClientRect();
+
   if(palabras.includes(palabra) && !encontradas.includes(palabra)){
     encontradas.push(palabra);
     marcadas.push(...seleccion);
 
     okSound();
+    icono("ok",r.left+r.width/2,r.top+r.height/2);
   } else {
     error=[...seleccion];
+
     noSound();
+    icono("no",r.left+r.width/2,r.top+r.height/2);
 
     canvas.classList.add("shake");
     setTimeout(()=>canvas.classList.remove("shake"),300);
