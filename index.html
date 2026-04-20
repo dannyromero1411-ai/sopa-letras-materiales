@@ -10,8 +10,6 @@
     margin: 0;
     font-family: Arial;
     background: #f5f1e8;
-
-    /* 🔥 CENTRADO REAL */
     min-height: 100vh;
     display: flex;
     justify-content: center;
@@ -108,7 +106,7 @@ const palabras = [
   "CARBONO","NOFERROSOS","FUSION","MEZCLA","HOMOGENEA"
 ];
 
-// 🔥 CANVAS HD + centrado correcto
+// 🔥 canvas responsive HD
 function ajustar() {
   const size = Math.min(window.innerWidth * 0.9, 500);
   const dpr = window.devicePixelRatio || 1;
@@ -121,21 +119,25 @@ function ajustar() {
 
   ctx.setTransform(dpr,0,0,dpr,0,0);
 
-  dibujar(); // 🔥 IMPORTANTE
+  dibujar();
 }
 
 window.addEventListener("resize", ajustar);
 ajustar();
 
+function sizeCelda(){
+  return canvas.width / (window.devicePixelRatio || 1) / tamaño;
+}
+
 function celda(x,y){
-  const size = canvas.width / (window.devicePixelRatio || 1) / tamaño;
+  const s = sizeCelda();
   return {
-    fila: Math.floor(y/size),
-    col: Math.floor(x/size)
+    fila: Math.floor(y/s),
+    col: Math.floor(x/s)
   };
 }
 
-// palabras
+// 🔥 colocar palabras
 function colocar(p){
   const dirs=[{df:0,dc:1},{df:1,dc:0},{df:1,dc:1},{df:-1,dc:1}];
   let ok=false;
@@ -178,40 +180,43 @@ function rellenar(){
 palabras.forEach(colocar);
 rellenar();
 
-// 🎨 dibujo
+// 🎨 dibujar
 function dibujar(){
-  const size = canvas.width / (window.devicePixelRatio || 1) / tamaño;
+  const s = sizeCelda();
 
   ctx.clearRect(0,0,canvas.width,canvas.height);
 
-  ctx.font = (size * 0.6) + "px Arial";
+  ctx.font = (s*0.6)+"px Arial";
   ctx.textAlign="center";
   ctx.textBaseline="middle";
 
   for(let i=0;i<tamaño;i++){
     for(let j=0;j<tamaño;j++){
-      ctx.strokeRect(j*size,i*size,size,size);
-
+      ctx.strokeRect(j*s,i*s,s,s);
       ctx.fillStyle="black";
-      ctx.fillText(
-        grid[i][j],
-        j*size+size/2,
-        i*size+size/2
-      );
+      ctx.fillText(grid[i][j],j*s+s/2,i*s+s/2);
     }
   }
 
-  // verdes correctas
+  // verdes
   ctx.fillStyle="rgba(0,200,100,0.4)";
   marcadas.forEach(c=>{
-    ctx.fillRect(c.col*size,c.fila*size,size,size);
+    ctx.fillRect(c.col*s,c.fila*s,s,s);
   });
 
-  // rojas error (se limpian luego)
+  // rojas error
   ctx.fillStyle="rgba(255,0,0,0.4)";
   error.forEach(c=>{
-    ctx.fillRect(c.col*size,c.fila*size,size,size);
+    ctx.fillRect(c.col*s,c.fila*s,s,s);
   });
+
+  // 🔵 GUIA AZUL
+  if(seleccion.length>0){
+    ctx.fillStyle="rgba(0,150,255,0.25)";
+    seleccion.forEach(c=>{
+      ctx.fillRect(c.col*s,c.fila*s,s,s);
+    });
+  }
 }
 
 // ✔️❌ animación
@@ -275,7 +280,7 @@ function end(){
   verificar();
 }
 
-// 🔥 VERIFICAR CORREGIDO
+// 🔥 lógica
 function verificar(){
   let palabra = seleccion.map(c=>grid[c.fila][c.col]).join("");
 
@@ -284,11 +289,9 @@ function verificar(){
   if(palabras.includes(palabra) && !encontradas.includes(palabra)){
     encontradas.push(palabra);
     marcadas.push(...seleccion);
-
     icono("ok", r.left + r.width/2, r.top + r.height/2);
   } else {
-    error = [...seleccion];
-
+    error=[...seleccion];
     icono("no", r.left + r.width/2, r.top + r.height/2);
 
     canvas.classList.remove("shake");
