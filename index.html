@@ -161,38 +161,54 @@ const palabras=[
   "CARBONO","NOFERROSOS","FUSION","MEZCLA","HOMOGENEA"
 ];
 
-
-// 🔊 SONIDO ARREGLADO (MÓVIL COMPATIBLE)
+// 🔊 SONIDO PRO MEJORADO
 const audio = new (window.AudioContext || window.webkitAudioContext)();
 
-function beep(freq,time){
+function beep(freq,time,vol=0.5){
   if(audio.state==="suspended") audio.resume();
 
   let o=audio.createOscillator();
   let g=audio.createGain();
 
   o.frequency.value=freq;
-  o.type="sine";
+  o.type="square"; // más fuerte
+
+  g.gain.value=vol;
+  g.gain.setValueAtTime(vol,audio.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.001,audio.currentTime+time);
 
   o.connect(g);
   g.connect(audio.destination);
-
-  g.gain.setValueAtTime(0.2,audio.currentTime);
-  g.gain.exponentialRampToValueAtTime(0.001,audio.currentTime+time);
 
   o.start();
   o.stop(audio.currentTime+time);
 }
 
+// ✔️ correcto
 const okSound=()=>{
-  beep(700,0.1);
-  setTimeout(()=>beep(1000,0.1),100);
+  beep(800,0.1,0.6);
+  setTimeout(()=>beep(1100,0.1,0.6),100);
+  setTimeout(()=>beep(1400,0.12,0.5),200);
 };
 
-const noSound=()=>beep(140,0.2);
+// ❌ error MÁS FUERTE
+const noSound=()=>{
+  beep(120,0.25,0.9);
+  setTimeout(()=>beep(90,0.25,0.9),120);
+};
 
+// 🎉 GANAR (confeti sonoro)
+const winSound=()=>{
+  let notas=[600,800,1000,1200,1400,1600];
 
-// 🎉 confeti
+  notas.forEach((f,i)=>{
+    setTimeout(()=>beep(f,0.12,0.7),i*120);
+  });
+
+  setTimeout(()=>beep(1800,0.3,0.8),800);
+};
+
+// 🎉 confeti visual
 function confeti(){
   for(let i=0;i<100;i++){
     let d=document.createElement("div");
@@ -205,8 +221,7 @@ function confeti(){
   }
 }
 
-
-// 📱 canvas responsive
+// 📱 responsive canvas
 function ajustar(){
   const size=Math.min(window.innerWidth*0.9,500);
   const dpr=window.devicePixelRatio||1;
@@ -232,7 +247,6 @@ function celda(x,y){
   const s=sizeCelda();
   return {fila:Math.floor(y/s),col:Math.floor(x/s)};
 }
-
 
 // 📌 colocar palabras
 function colocar(p){
@@ -276,7 +290,6 @@ function rellenar(){
 palabras.forEach(colocar);
 rellenar();
 
-
 // 🎨 dibujar
 function dibujar(){
   const s=sizeCelda();
@@ -307,7 +320,6 @@ function dibujar(){
   }
 }
 
-
 // 🎮 interacción
 let arrastrando=false;
 
@@ -318,7 +330,6 @@ canvas.addEventListener("mouseup",end);
 canvas.addEventListener("touchstart",start);
 canvas.addEventListener("touchmove",(e)=>{e.preventDefault();move(e);},{passive:false});
 canvas.addEventListener("touchend",end);
-
 
 function start(e){
   arrastrando=true;
@@ -354,14 +365,12 @@ function move(e){
   dibujar();
 }
 
-
 function end(){
   arrastrando=false;
   verificar();
 }
 
-
-// 🔍 verificar
+// 🔍 verificar FINAL
 function verificar(){
   let palabra=seleccion.map(c=>grid[c.fila][c.col]).join("");
 
@@ -384,6 +393,7 @@ function verificar(){
 
   if(encontradas.length===palabras.length){
     confeti();
+    winSound();
     document.getElementById("win").style.display="flex";
   }
 
@@ -392,7 +402,6 @@ function verificar(){
     dibujar();
   },300);
 }
-
 
 // 📋 lista
 function actualizar(){
