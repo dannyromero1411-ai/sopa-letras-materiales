@@ -44,7 +44,9 @@
     text-align: center;
     width: 100%;
     padding: 10px;
-    transform: translateY(-8px);
+
+    /* 🔥 sube todo en móvil */
+    transform: translateY(-12px);
   }
 
   h2 {
@@ -68,9 +70,19 @@
     color: #2f5d3a;
   }
 
+  /* 📋 LISTA BONITA */
   #lista {
-    margin-top: 5px;
+    margin-top: 8px;
     color: #2f5d3a;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 4px;
+    font-size: 14px;
+  }
+
+  #lista div {
+    text-align: left;
+    padding: 2px 6px;
   }
 
   /* ✔️❌ animación */
@@ -98,21 +110,15 @@
     75% { transform: translateX(-6px); }
   }
 
-  /* 🎉 confeti */
-  .confeti {
-    position: fixed;
-    width: 8px;
-    height: 8px;
-    background: red;
-    top: -10px;
-    animation: caer 2s linear forwards;
-    z-index: 9999;
-  }
+  /* 📱 en celular sube más la sopa */
+  @media (max-width: 600px) {
+    .contenedor {
+      transform: translateY(-25px);
+    }
 
-  @keyframes caer {
-    to {
-      transform: translateY(100vh) rotate(360deg);
-      opacity: 0;
+    #lista {
+      font-size: 12px;
+      grid-template-columns: 1fr 1fr;
     }
   }
 </style>
@@ -122,7 +128,7 @@
 
 <div class="contenedor">
 
-<h2>Sopa de Letras </h2>
+<h2>Sopa de Letras 💚</h2>
 
 <canvas id="canvas"></canvas>
 
@@ -149,41 +155,20 @@ const palabras = [
   "CARBONO","NOFERROSOS","FUSION","MEZCLA","HOMOGENEA"
 ];
 
-// 🔊 audio simple
+// sonido simple
 const audio = new (window.AudioContext || window.webkitAudioContext)();
 
-function beep(freq, time){
-  let o = audio.createOscillator();
-  let g = audio.createGain();
-
-  o.frequency.value = freq;
-  o.connect(g);
-  g.connect(audio.destination);
-
-  g.gain.setValueAtTime(0.2,audio.currentTime);
-  g.gain.exponentialRampToValueAtTime(0.001,audio.currentTime+time);
-
+function beep(f,t){
+  let o=audio.createOscillator();
+  let g=audio.createGain();
+  o.frequency.value=f;
+  o.connect(g); g.connect(audio.destination);
+  g.gain.value=0.2;
   o.start();
-  o.stop(audio.currentTime+time);
+  setTimeout(()=>o.stop(),t*1000);
 }
 
-const sonidoOK = ()=>{ beep(700,0.1); setTimeout(()=>beep(1000,0.1),100); }
-const sonidoNO = ()=> beep(150,0.2);
-
-// 🎉 confeti
-function confeti(){
-  for(let i=0;i<80;i++){
-    let c=document.createElement("div");
-    c.className="confeti";
-    c.style.left=Math.random()*100+"vw";
-    c.style.background=`hsl(${Math.random()*360},70%,60%)`;
-    c.style.animationDuration=(1+Math.random()*2)+"s";
-    document.body.appendChild(c);
-    setTimeout(()=>c.remove(),2500);
-  }
-}
-
-// canvas HD
+// canvas responsive
 function ajustar(){
   const size = Math.min(window.innerWidth * 0.9, 500);
   const dpr = window.devicePixelRatio || 1;
@@ -283,18 +268,7 @@ function dibujar(){
   }
 }
 
-// ✔️❌ icono
-function icono(tipo,x,y){
-  const d=document.createElement("div");
-  d.className="icono";
-  d.innerHTML=tipo==="ok"?"✔️":"❌";
-  d.style.left=x+"px";
-  d.style.top=y+"px";
-  document.body.appendChild(d);
-  setTimeout(()=>d.remove(),800);
-}
-
-// interacción tipo app
+// selección tipo dedo
 let arrastrando=false;
 
 canvas.addEventListener("mousedown",start);
@@ -344,7 +318,17 @@ function end(){
   verificar();
 }
 
-// lógica
+// UI LISTA 🔥
+function actualizar(){
+  document.getElementById("lista").innerHTML =
+    palabras.map(p=>{
+      let ok=encontradas.includes(p);
+      return `<div>${ok?"✔️":"⬜"} ${p}</div>`;
+    }).join("");
+
+  document.getElementById("score").innerText=encontradas.length;
+}
+
 function verificar(){
   let palabra=seleccion.map(c=>grid[c.fila][c.col]).join("");
 
@@ -353,40 +337,20 @@ function verificar(){
   if(palabras.includes(palabra) && !encontradas.includes(palabra)){
     encontradas.push(palabra);
     marcadas.push(...seleccion);
-
-    sonidoOK();
-    icono("ok",r.left+r.width/2,r.top+r.height/2);
+    beep(700,0.1);
   } else {
     error=[...seleccion];
-
-    sonidoNO();
-    icono("no",r.left+r.width/2,r.top+r.height/2);
-
-    canvas.classList.remove("shake");
-    void canvas.offsetWidth;
+    beep(150,0.2);
     canvas.classList.add("shake");
-
-    setTimeout(()=>{ error=[]; dibujar(); },500);
+    setTimeout(()=>{canvas.classList.remove("shake");error=[];dibujar();},500);
   }
 
   actualizar();
-
-  if(encontradas.length===palabras.length){
-    confeti();
-  }
 
   setTimeout(()=>{
     seleccion=[];
     dibujar();
   },300);
-}
-
-// UI
-function actualizar(){
-  document.getElementById("lista").innerHTML =
-    palabras.map(p=>encontradas.includes(p)?"✔️ "+p:p).join(", ");
-
-  document.getElementById("score").innerText=encontradas.length;
 }
 
 actualizar();
