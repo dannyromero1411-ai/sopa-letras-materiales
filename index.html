@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Sopa de letras</title>
+<style>
+  body {
+    font-family: Arial;
+    text-align: center;
+    background: linear-gradient(135deg, #89f7fe, #66a6ff);
+    margin: 0;
+  }
+
+  canvas {
+    border: 3px solid #333;
+    background: white;
+    border-radius: 12px;
+    touch-action: none;
+    width: 90vw;
+    max-width: 500px;
+  }
+
+  #info {
+    margin-top: 10px;
+    font-size: 18px;
+  }
+
+  #ganaste {
+    position: fixed;
+    top:0; left:0;
+    width:100%; height:100%;
+    display:none;
+    justify-content:center;
+    align-items:center;
+    flex-direction:column;
+    background: rgba(0,0,0,0.85);
+    color:white;
+  }
+
+  .celebrar {
+    font-size: 40px;
+    animation: pop 0.6s infinite alternate;
+  }
+
+  @keyframes pop {
+    from { transform: scale(1); }
+    to { transform: scale(1.2); }
+  }
+
+  .shake {
+    animation: shake 0.3s;
+  }
+
+  @keyframes shake {
+    25% { transform: translateX(-6px); }
+    50% { transform: translateX(6px); }
+    75% { transform: translateX(-6px); }
+  }
+</style>
+</head>
+<body>
+
+<h2>Sopa de Letras </h2>
+
+<canvas id="canvas" width="500" height="500"></canvas>
+
+<div id="info">
+🧮 Puntaje: <span id="score">0</span>/9
+</div>
+
+<div id="lista"></div>
+
+<div id="ganaste">
+  <div class="celebrar">🎉 ¡GANASTE! 🎉</div>
+  <button onclick="location.reload()">Reiniciar</button>
+</div>
+
+<script>
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+
+const tamaño = 14;
+const tamañoCelda = canvas.width / tamaño;
+
+const palabras = [
+  "ALEACIONES",
+  "HIERRO",
+  "METAL",
+  "FERROSO",
+  "CARBONO",
+  "NOFERROSOS",
+  "FUSION",
+  "MEZCLA",
+  "HOMOGENEA"
+];
+
+let encontradas=[];
+let grid = Array.from({length:tamaño},()=>Array(tamaño).fill(""));
+let seleccion=[], marcadas=[], seleccionError=[];
+let arrastrando=false;
+
+// 🔊 sonidos
+const audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+
+function beep(f,t){
+  let o=audioCtx.createOscillator();
+  let g=audioCtx.createGain();
+  o.frequency.value=f;
+  o.connect(g); g.connect(audioCtx.destination);
+  o.start();
+  g.gain.setValueAtTime(0.2,audioCtx.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+t);
+  o.stop(audioCtx.currentTime+t);
+}
+
+const bien=()=>{beep(700,0.1);setTimeout(()=>beep(1000,0.1),100);}
+const mal=()=>beep(180,0.2);
+const win=()=>{for(let i=0;i<12;i++){setTimeout(()=>beep(400+Math.random()*800,0.1),i*70);}};
+
+// colocar palabras
+function colocar(p){
+  const dirs=[{df:0,dc:1},{df:1,dc:0},{df:1,dc:1},{df:-1,dc:1}];
+
+  let ok=false;
+  while(!ok){
+    let d=dirs[Math.floor(Math.random()*dirs.length)];
+    let f=Math.floor(Math.random()*tamaño);
+    let c=Math.floor(Math.random()*tamaño);
+
+    let puede=true;
+    for(let i=0;i<p.length;i++){
+      let nf=f+d.df*i,nc=c+d.dc*i;
+      if(nf<0||nc<0||nf>=tamaño||nc>=tamaño||grid[nf][nc]!=""){
+        puede=false; break;
+      }
+    }
+
+    if(puede){
+      for(let i=0;i<p.length;i++){
+        let nf=f+d.df*i,nc=c+d.dc*i;
+        grid[nf][nc]=p[i];
+      }
+      ok=true;
+    }
+  }
+}
+
+function rellenar(){
+  const letras="ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  for(let i=0;i<tamaño;i++){
+    for(let j=0;j<tamaño;j++){
+      if(grid[i][j]==""){
+        grid[i][j]=letras[Math.floor(Math.random()*26)];
+      }
+    }
+  }
+}
+
+palabras.forEach(colocar);
+rellenar();
+
+// 🎨 dibujar
+function dibujar(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  ctx.font="18px Arial";
+  ctx.textAlign="center";
+  ctx.textBaseline="middle";
+
+  for(let i=0;i<tamaño;i++){
+    for(let j=0;j<tamaño;j++){
+      ctx.strokeRect(j*tamañoCelda,i*tamañoCelda,tamañoCelda,tamañoCelda);
+      ctx.fillStyle="black";
+      ctx.fillText(grid[i][j],j*tamañoCelda+tamañoCelda/2,i*tamañoCelda+tamañoCelda/2);
+    }
+  }
+
+  // 🟢 correctas
+  ctx.fillStyle="rgba(0,200,100,0.4)";
+  marcadas.forEach(c=>ctx.fillRect(c.col*tamañoCelda,c.fila*tamañoCelda,tamañoCelda,tamañoCelda));
+
+  // 🔵 seleccion actual
+  ctx.fillStyle="rgba(0,150,255,0.3)";
+  seleccion.forEach(c=>ctx.fillRect(c.col*tamañoCelda,c.fila*tamañoCelda,tamañoCelda,tamañoCelda));
+
+  // 🔴 error
+  ctx.fillStyle="rgba(255,0,0,0.6)";
+  seleccionError.forEach(c=>ctx.fillRect(c.col*tamañoCelda,c.fila*tamañoCelda,tamañoCelda,tamañoCelda));
+}
+
+function celda(x,y){
+  return {fila:Math.floor(y/tamañoCelda),col:Math.floor(x/tamañoCelda)};
+}
+
+function start(e){
+  arrastrando=true;
+  seleccion=[];
+  let r=canvas.getBoundingClientRect();
+  let x=(e.touches?e.touches[0].clientX:e.clientX)-r.left;
+  let y=(e.touches?e.touches[0].clientY:e.clientY)-r.top;
+  seleccion.push(celda(x,y));
+}
+
+function move(e){
+  if(!arrastrando)return;
+
+  let r=canvas.getBoundingClientRect();
+  let x=(e.touches?e.touches[0].clientX:e.clientX)-r.left;
+  let y=(e.touches?e.touches[0].clientY:e.clientY)-r.top;
+
+  let c=celda(x,y),ini=seleccion[0];
+  let df=c.fila-ini.fila,dc=c.col-ini.col;
+
+  if(df===0||dc===0||Math.abs(df)===Math.abs(dc)){
+    seleccion=[];
+    let f=ini.fila,col=ini.col;
+    let pf=Math.sign(df),pc=Math.sign(dc);
+
+    while(true){
+      seleccion.push({fila:f,col:col});
+      if(f===c.fila&&col===c.col) break;
+      f+=pf; col+=pc;
+    }
+  }
+
+  dibujar();
+}
+
+function end(){
+  arrastrando=false;
+  verificar();
+}
+
+canvas.addEventListener("mousedown",start);
+canvas.addEventListener("mousemove",move);
+canvas.addEventListener("mouseup",end);
+
+canvas.addEventListener("touchstart",start);
+canvas.addEventListener("touchmove",move);
+canvas.addEventListener("touchend",end);
+
+function verificar(){
+  let palabra=seleccion.map(c=>grid[c.fila][c.col]).join("");
+
+  if(palabras.includes(palabra)&&!encontradas.includes(palabra)){
+    encontradas.push(palabra);
+    marcadas.push(...seleccion);
+    bien();
+    actualizar();
+  } else {
+    seleccionError=[...seleccion];
+    canvas.classList.add("shake");
+    mal();
+    dibujar();
+
+    setTimeout(()=>{
+      canvas.classList.remove("shake");
+      seleccionError=[];
+      dibujar();
+    },600);
+  }
+
+  if(encontradas.length===palabras.length){
+    setTimeout(()=>{
+      win();
+      document.getElementById("ganaste").style.display="flex";
+    },300);
+  }
+
+  setTimeout(()=>{seleccion=[];dibujar();},400);
+}
+
+function actualizar(){
+  document.getElementById("lista").innerHTML =
+    "Encuentra: "+
+    palabras.map(p=>encontradas.includes(p)?"✔️ "+p:p).join(", ");
+
+  document.getElementById("score").innerText=encontradas.length;
+}
+
+actualizar();
+dibujar();
+</script>
+
+</body>
+</html>
