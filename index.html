@@ -12,7 +12,7 @@
     margin: 0;
     overflow-x: hidden;
 
-    /* 🔥 CENTRADO REAL */
+    /* 🔥 mejor centrado móvil */
     min-height: 100vh;
     display: flex;
     justify-content: center;
@@ -26,6 +26,9 @@
     justify-content: center;
     width: 100%;
     padding: 10px;
+
+    /* 🔥 SUBIR UN POCO EN PANTALLA */
+    transform: translateY(-10px);
   }
 
   h2 {
@@ -105,7 +108,6 @@
     75% { transform: translateX(-6px); }
   }
 
-  /* ✔️❌ animación */
   .floating-icon {
     position: fixed;
     font-size: 60px;
@@ -115,15 +117,9 @@
   }
 
   @keyframes popUp {
-    0% {
-      transform: translate(-50%, -50%) scale(0.5);
-      opacity: 0;
-    }
+    0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
     40% { opacity: 1; }
-    100% {
-      transform: translate(-50%, -150%) scale(1.3);
-      opacity: 0;
-    }
+    100% { transform: translate(-50%, -150%) scale(1.3); opacity: 0; }
   }
 </style>
 </head>
@@ -154,8 +150,17 @@ const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 
 const tamaño = 14;
+let grid = Array.from({length:tamaño},()=>Array(tamaño).fill(""));
+let seleccion=[], marcadas=[], seleccionError=[];
+let encontradas=[];
+let arrastrando=false;
 
-// 🔥 CANVAS HD
+const palabras = [
+  "ALEACIONES","HIERRO","METAL","FERROSO",
+  "CARBONO","NOFERROSOS","FUSION","MEZCLA","HOMOGENEA"
+];
+
+// 🔥 FIX IMPORTANTE: canvas HD + visibilidad inmediata
 function ajustarCanvas() {
   const size = Math.min(window.innerWidth * 0.9, 500);
   const dpr = window.devicePixelRatio || 1;
@@ -167,39 +172,18 @@ function ajustarCanvas() {
   canvas.height = size * dpr;
 
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+  dibujar(); // 🔥 FORZAR PRIMER DIBUJO
 }
 
 function getTamañoCelda() {
-  return canvas.width / (window.devicePixelRatio || 1) / tamaño;
+  return (canvas.width / (window.devicePixelRatio || 1)) / tamaño;
 }
 
 window.addEventListener("resize", ajustarCanvas);
 ajustarCanvas();
 
-const palabras = [
-  "ALEACIONES","HIERRO","METAL","FERROSO",
-  "CARBONO","NOFERROSOS","FUSION","MEZCLA","HOMOGENEA"
-];
-
-let encontradas=[];
-let grid = Array.from({length:tamaño},()=>Array(tamaño).fill(""));
-let seleccion=[], marcadas=[], seleccionError=[];
-let arrastrando=false;
-
-// ✔️❌ iconos
-function mostrarIcono(tipo, x, y) {
-  const icon = document.createElement("div");
-  icon.className = "floating-icon";
-  icon.innerHTML = tipo === "ok" ? "✔️" : "❌";
-
-  icon.style.left = x + "px";
-  icon.style.top = y + "px";
-
-  document.body.appendChild(icon);
-  setTimeout(() => icon.remove(), 800);
-}
-
-// palabras
+// colocar palabras
 function colocar(p){
   const dirs=[{df:0,dc:1},{df:1,dc:0},{df:1,dc:1},{df:-1,dc:1}];
   let ok=false;
@@ -240,43 +224,47 @@ function rellenar(){
 palabras.forEach(colocar);
 rellenar();
 
+// 🎨 DIBUJO
 function dibujar(){
-  const tamañoCelda = getTamañoCelda();
+  const celda = getTamañoCelda();
 
   ctx.clearRect(0,0,canvas.width,canvas.height);
 
-  ctx.font = (tamañoCelda * 0.6) + "px Arial";
+  ctx.font = (celda * 0.6) + "px Arial";
   ctx.textAlign="center";
   ctx.textBaseline="middle";
 
   for(let i=0;i<tamaño;i++){
     for(let j=0;j<tamaño;j++){
-      ctx.strokeRect(j*tamañoCelda,i*tamañoCelda,tamañoCelda,tamañoCelda);
-
+      ctx.strokeRect(j*celda,i*celda,celda,celda);
       ctx.fillStyle="black";
       ctx.fillText(
         grid[i][j],
-        j*tamañoCelda+tamañoCelda/2,
-        i*tamañoCelda+tamañoCelda/2
+        j*celda+celda/2,
+        i*celda+celda/2
       );
     }
   }
 
   ctx.fillStyle="rgba(0,200,100,0.4)";
-  marcadas.forEach(c=>ctx.fillRect(c.col*tamañoCelda,c.fila*tamañoCelda,tamañoCelda,tamañoCelda));
+  marcadas.forEach(c=>ctx.fillRect(c.col*celda,c.fila*celda,celda,celda));
 
   ctx.fillStyle="rgba(0,150,255,0.3)";
-  seleccion.forEach(c=>ctx.fillRect(c.col*tamañoCelda,c.fila*tamañoCelda,tamañoCelda,tamañoCelda));
+  seleccion.forEach(c=>ctx.fillRect(c.col*celda,c.fila*celda,celda,celda));
 
   ctx.fillStyle="rgba(255,0,0,0.4)";
-  seleccionError.forEach(c=>ctx.fillRect(c.col*tamañoCelda,c.fila*tamañoCelda,tamañoCelda,tamañoCelda));
+  seleccionError.forEach(c=>ctx.fillRect(c.col*celda,c.fila*celda,celda,celda));
 }
 
 function celda(x,y){
-  const tamañoCelda = getTamañoCelda();
-  return {fila:Math.floor(y/tamañoCelda),col:Math.floor(x/tamañoCelda)};
+  const c = getTamañoCelda();
+  return {
+    fila: Math.floor(y/c),
+    col: Math.floor(x/c)
+  };
 }
 
+// interacción
 function start(e){
   arrastrando=true;
   seleccion=[];
@@ -324,28 +312,20 @@ canvas.addEventListener("touchstart",start);
 canvas.addEventListener("touchmove",(e)=>{e.preventDefault();move(e);},{passive:false});
 canvas.addEventListener("touchend",end);
 
+// verificar
 function verificar(){
-  let palabra=seleccion.map(c=>grid[c.fila][c.col]).join("");
+  let palabra = seleccion.map(c=>grid[c.fila][c.col]).join("");
 
   const r = canvas.getBoundingClientRect();
 
   if(palabras.includes(palabra)&&!encontradas.includes(palabra)){
     encontradas.push(palabra);
     marcadas.push(...seleccion);
-    mostrarIcono("ok", r.left + r.width/2, r.top + r.height/2);
-    actualizar();
   } else {
     seleccionError=[...seleccion];
-    mostrarIcono("no", r.left + r.width/2, r.top + r.height/2);
-
     canvas.classList.remove("shake");
     void canvas.offsetWidth;
     canvas.classList.add("shake");
-
-    setTimeout(()=>{
-      seleccionError=[];
-      dibujar();
-    },600);
   }
 
   if(encontradas.length===palabras.length){
@@ -355,6 +335,7 @@ function verificar(){
   setTimeout(()=>{seleccion=[];dibujar();},400);
 }
 
+// actualizar UI
 function actualizar(){
   document.getElementById("lista").innerHTML =
     "Encuentra: "+
