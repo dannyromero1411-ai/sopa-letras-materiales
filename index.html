@@ -2,7 +2,9 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Sopa de letras</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sopa PRO FINAL</title>
+
 <style>
   body {
     font-family: Arial;
@@ -58,11 +60,12 @@
   }
 </style>
 </head>
+
 <body>
 
-<h2>Sopa de Letras </h2>
+<h2>Sopa de Letras 💙</h2>
 
-<canvas id="canvas" width="500" height="500"></canvas>
+<canvas id="canvas"></canvas>
 
 <div id="info">
 🧮 Puntaje: <span id="score">0</span>/9
@@ -80,18 +83,25 @@ const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 
 const tamaño = 14;
-const tamañoCelda = canvas.width / tamaño;
+
+function ajustarCanvas() {
+  const size = Math.min(window.innerWidth * 0.9, 500);
+  canvas.style.width = size + "px";
+  canvas.style.height = size + "px";
+  canvas.width = size;
+  canvas.height = size;
+}
+
+function getTamañoCelda() {
+  return canvas.width / tamaño;
+}
+
+window.addEventListener("resize", ajustarCanvas);
+ajustarCanvas();
 
 const palabras = [
-  "ALEACIONES",
-  "HIERRO",
-  "METAL",
-  "FERROSO",
-  "CARBONO",
-  "NOFERROSOS",
-  "FUSION",
-  "MEZCLA",
-  "HOMOGENEA"
+  "ALEACIONES","HIERRO","METAL","FERROSO",
+  "CARBONO","NOFERROSOS","FUSION","MEZCLA","HOMOGENEA"
 ];
 
 let encontradas=[];
@@ -120,8 +130,8 @@ const win=()=>{for(let i=0;i<12;i++){setTimeout(()=>beep(400+Math.random()*800,0
 // colocar palabras
 function colocar(p){
   const dirs=[{df:0,dc:1},{df:1,dc:0},{df:1,dc:1},{df:-1,dc:1}];
-
   let ok=false;
+
   while(!ok){
     let d=dirs[Math.floor(Math.random()*dirs.length)];
     let f=Math.floor(Math.random()*tamaño);
@@ -159,11 +169,26 @@ function rellenar(){
 palabras.forEach(colocar);
 rellenar();
 
+// 🎨 optimización FPS
+let ultimoFrame = 0;
+const FPS = 60;
+
+function puedeDibujar() {
+  const ahora = Date.now();
+  if (ahora - ultimoFrame > 1000 / FPS) {
+    ultimoFrame = ahora;
+    return true;
+  }
+  return false;
+}
+
 // 🎨 dibujar
 function dibujar(){
+  const tamañoCelda = getTamañoCelda();
+
   ctx.clearRect(0,0,canvas.width,canvas.height);
 
-  ctx.font="18px Arial";
+  ctx.font = (tamañoCelda * 0.6) + "px Arial";
   ctx.textAlign="center";
   ctx.textBaseline="middle";
 
@@ -171,25 +196,29 @@ function dibujar(){
     for(let j=0;j<tamaño;j++){
       ctx.strokeRect(j*tamañoCelda,i*tamañoCelda,tamañoCelda,tamañoCelda);
       ctx.fillStyle="black";
-      ctx.fillText(grid[i][j],j*tamañoCelda+tamañoCelda/2,i*tamañoCelda+tamañoCelda/2);
+      ctx.fillText(grid[i][j],
+        j*tamañoCelda+tamañoCelda/2,
+        i*tamañoCelda+tamañoCelda/2
+      );
     }
   }
 
-  // 🟢 correctas
   ctx.fillStyle="rgba(0,200,100,0.4)";
   marcadas.forEach(c=>ctx.fillRect(c.col*tamañoCelda,c.fila*tamañoCelda,tamañoCelda,tamañoCelda));
 
-  // 🔵 seleccion actual
   ctx.fillStyle="rgba(0,150,255,0.3)";
   seleccion.forEach(c=>ctx.fillRect(c.col*tamañoCelda,c.fila*tamañoCelda,tamañoCelda,tamañoCelda));
 
-  // 🔴 error
   ctx.fillStyle="rgba(255,0,0,0.6)";
   seleccionError.forEach(c=>ctx.fillRect(c.col*tamañoCelda,c.fila*tamañoCelda,tamañoCelda,tamañoCelda));
 }
 
 function celda(x,y){
-  return {fila:Math.floor(y/tamañoCelda),col:Math.floor(x/tamañoCelda)};
+  const tamañoCelda = getTamañoCelda();
+  return {
+    fila: Math.max(0, Math.min(tamaño-1, Math.floor(y/tamañoCelda))),
+    col: Math.max(0, Math.min(tamaño-1, Math.floor(x/tamañoCelda)))
+  };
 }
 
 function start(e){
@@ -223,7 +252,7 @@ function move(e){
     }
   }
 
-  dibujar();
+  if(puedeDibujar()) dibujar();
 }
 
 function end(){
@@ -236,7 +265,10 @@ canvas.addEventListener("mousemove",move);
 canvas.addEventListener("mouseup",end);
 
 canvas.addEventListener("touchstart",start);
-canvas.addEventListener("touchmove",move);
+canvas.addEventListener("touchmove",(e)=>{
+  e.preventDefault();
+  move(e);
+},{passive:false});
 canvas.addEventListener("touchend",end);
 
 function verificar(){
