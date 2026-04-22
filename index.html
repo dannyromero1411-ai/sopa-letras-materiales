@@ -181,9 +181,8 @@ if(!nombre){
 
 document.getElementById("usuario").innerText = "👋 Jugador: " + nombre;
 
-/* =====================================================
-   🔥 RANKING CORREGIDO (SOLO MEJOR TIEMPO POR JUGADOR)
-===================================================== */
+/* ================= RANKING ================= */
+
 function guardarRanking(nombre, tiempo){
   let ranking = JSON.parse(localStorage.getItem("ranking")) || [];
 
@@ -214,9 +213,7 @@ function obtenerRankingHTML(){
   return html;
 }
 
-/* =====================================================
-   🔥 JUEGO ORIGINAL COMPLETO
-===================================================== */
+/* ================= JUEGO ================= */
 
 const canvas=document.getElementById("canvas");
 const ctx=canvas.getContext("2d");
@@ -252,24 +249,20 @@ function detenerTiempo(){
   clearInterval(intervalo);
 }
 
+/* sonidos */
 const audio=new (window.AudioContext||window.webkitAudioContext)();
 
 function beep(f,t,v=0.5){
   if(audio.state==="suspended") audio.resume();
-
   let o=audio.createOscillator();
   let g=audio.createGain();
-
   o.frequency.value=f;
   o.type="square";
-
   g.gain.value=v;
   g.gain.setValueAtTime(v,audio.currentTime);
   g.gain.exponentialRampToValueAtTime(0.001,audio.currentTime+t);
-
   o.connect(g);
   g.connect(audio.destination);
-
   o.start();
   o.stop(audio.currentTime+t);
 }
@@ -444,21 +437,35 @@ function end(){
   verificar();
 }
 
+/* 🔥 ARREGLADO: ACEPTA PALABRA NORMAL Y AL REVÉS */
 function verificar(){
-  let palabra=seleccion.map(c=>grid[c.fila][c.col]).join("");
-  const r=canvas.getBoundingClientRect();
 
-  if(palabras.includes(palabra) && !encontradas.includes(palabra)){
-    encontradas.push(palabra);
+  let palabra = seleccion.map(c => grid[c.fila][c.col]).join("");
+  let invertida = palabra.split("").reverse().join("");
+
+  const r = canvas.getBoundingClientRect();
+
+  let valida = palabras.includes(palabra) || palabras.includes(invertida);
+  let usada = encontradas.includes(palabra) || encontradas.includes(invertida);
+
+  if(valida && !usada){
+
+    let real = palabras.includes(palabra) ? palabra : invertida;
+
+    encontradas.push(real);
     marcadas.push(...seleccion);
+
     okSound();
-    icono("ok",r.left+r.width/2,r.top+r.height/2);
+    icono("ok", r.left + r.width/2, r.top + r.height/2);
+
   } else {
     error=[...seleccion];
     noSound();
-    icono("no",r.left+r.width/2,r.top+r.height/2);
+    icono("no", r.left + r.width/2, r.top + r.height/2);
+
     canvas.classList.add("shake");
     setTimeout(()=>canvas.classList.remove("shake"),300);
+
     setTimeout(()=>{error=[];dibujar();},400);
   }
 
