@@ -40,7 +40,6 @@
     text-align:center;
     width:100%;
     padding:10px;
-    transform:translateY(-10px);
   }
 
   h2{color:#2f5d3a;margin:5px 0;}
@@ -169,6 +168,7 @@
 <div id="win"></div>
 
 <script>
+
 let nombre = localStorage.getItem("jugador");
 
 if(!nombre){
@@ -181,9 +181,22 @@ if(!nombre){
 
 document.getElementById("usuario").innerText = "👋 Jugador: " + nombre;
 
+/* =====================================================
+   🔥 RANKING CORREGIDO (SOLO MEJOR TIEMPO POR JUGADOR)
+===================================================== */
 function guardarRanking(nombre, tiempo){
   let ranking = JSON.parse(localStorage.getItem("ranking")) || [];
-  ranking.push({nombre, tiempo});
+
+  let jugador = ranking.find(r => r.nombre === nombre);
+
+  if(jugador){
+    if(tiempo < jugador.tiempo){
+      jugador.tiempo = tiempo;
+    }
+  } else {
+    ranking.push({nombre, tiempo});
+  }
+
   ranking.sort((a,b)=>a.tiempo - b.tiempo);
   localStorage.setItem("ranking", JSON.stringify(ranking));
 }
@@ -191,13 +204,19 @@ function guardarRanking(nombre, tiempo){
 function obtenerRankingHTML(){
   let ranking = JSON.parse(localStorage.getItem("ranking")) || [];
   let html = "<h3>🏆 Ranking</h3>";
+
   ranking.slice(0,10).forEach((r,i)=>{
     let pos = i+1;
     let icono = pos==1?"🥇":pos==2?"🥈":pos==3?"🥉":pos+".";
     html += `<div>${icono} ${r.nombre} - ${formatearTiempo(r.tiempo)}</div>`;
   });
+
   return html;
 }
+
+/* =====================================================
+   🔥 JUEGO ORIGINAL COMPLETO
+===================================================== */
 
 const canvas=document.getElementById("canvas");
 const ctx=canvas.getContext("2d");
@@ -255,22 +274,8 @@ function beep(f,t,v=0.5){
   o.stop(audio.currentTime+t);
 }
 
-const okSound=()=>{
-  beep(800,0.1,0.6);
-  setTimeout(()=>beep(1100,0.1,0.6),100);
-};
-
-const noSound=()=>{
-  beep(120,0.25,0.9);
-  setTimeout(()=>beep(90,0.25,0.9),120);
-};
-
-const winSound=()=>{
-  [600,800,1000,1200,1400,1600].forEach((f,i)=>{
-    setTimeout(()=>beep(f,0.12,0.7),i*120);
-  });
-  setTimeout(()=>beep(1800,0.3,0.8),800);
-};
+const okSound=()=>{beep(800,0.1,0.6);setTimeout(()=>beep(1100,0.1,0.6),100);};
+const noSound=()=>{beep(120,0.25,0.9);setTimeout(()=>beep(90,0.25,0.9),120);};
 
 function confeti(){
   for(let i=0;i<100;i++){
@@ -278,7 +283,6 @@ function confeti(){
     d.className="confeti";
     d.style.left=Math.random()*100+"vw";
     d.style.background=`hsl(${Math.random()*360},70%,60%)`;
-    d.style.animationDuration=(1+Math.random()*2)+"s";
     document.body.appendChild(d);
     setTimeout(()=>d.remove(),2500);
   }
@@ -293,6 +297,8 @@ function icono(tipo,x,y){
   document.body.appendChild(d);
   setTimeout(()=>d.remove(),700);
 }
+
+/* ===== GRID ===== */
 
 function ajustar(){
   const size=Math.min(window.innerWidth*0.9,500);
@@ -363,7 +369,6 @@ rellenar();
 
 function dibujar(){
   const s=sizeCelda();
-
   ctx.clearRect(0,0,canvas.width,canvas.height);
 
   ctx.font=(s*0.6)+"px Arial";
@@ -384,11 +389,11 @@ function dibujar(){
   ctx.fillStyle="rgba(255,0,0,0.4)";
   error.forEach(c=>ctx.fillRect(c.col*s,c.fila*s,s,s));
 
-  if(seleccion.length>0){
-    ctx.fillStyle="rgba(0,150,255,0.25)";
-    seleccion.forEach(c=>ctx.fillRect(c.col*s,c.fila*s,s,s));
-  }
+  ctx.fillStyle="rgba(0,150,255,0.25)";
+  seleccion.forEach(c=>ctx.fillRect(c.col*s,c.fila*s,s,s));
 }
+
+/* ===== INPUT ===== */
 
 let arrastrando=false;
 
@@ -463,11 +468,10 @@ function verificar(){
     detenerTiempo();
     guardarRanking(nombre, tiempo);
     confeti();
-    winSound();
+
     document.getElementById("win").innerHTML = `
       👤 ${nombre}<br>
-      ⏱️ Tiempo: ${formatearTiempo(tiempo)}
-      <br><br>
+      ⏱️ ${formatearTiempo(tiempo)}<br><br>
       ${obtenerRankingHTML()}
       <br><button onclick="location.reload()">Reiniciar</button>
     `;
@@ -493,6 +497,7 @@ function actualizar(){
 iniciarTiempo();
 actualizar();
 dibujar();
+
 </script>
 
 </body>
