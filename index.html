@@ -43,7 +43,13 @@
     transform:translateY(-10px);
   }
 
-  h2{color:#2f5d3a;margin:10px 0;}
+  h2{color:#2f5d3a;margin:5px 0;}
+
+  #usuario{
+    font-size:16px;
+    color:#2f5d3a;
+    margin-bottom:5px;
+  }
 
   canvas{
     border:3px solid #2f5d3a;
@@ -84,7 +90,6 @@
     75%{transform:translateX(-6px);}
   }
 
-  /* 🎉 confeti */
   .confeti{
     position:fixed;
     width:8px;
@@ -101,7 +106,6 @@
     }
   }
 
-  /* ✔️❌ ANIMACIÓN RESTAURADA */
   .icono{
     position:fixed;
     font-size:60px;
@@ -127,7 +131,8 @@
     justify-content:center;
     align-items:center;
     color:white;
-    font-size:32px;
+    font-size:28px;
+    text-align:center;
     z-index:99999;
   }
 
@@ -147,22 +152,37 @@
 
 <div class="contenedor">
 
-<h2>Sopa de Letras </h2>
+<h2>Sopa de Letras</h2>
+<div id="usuario"></div>
 
 <canvas id="canvas"></canvas>
 
-<div id="info">🧮 Puntaje: <span id="score">0</span>/9</div>
+<div id="info">
+🧮 Puntaje: <span id="score">0</span>/9 |
+⏱️ Tiempo: <span id="tiempo">00:00</span>
+</div>
 
 <div id="lista"></div>
 
 </div>
 
-<div id="win">
-🎉 ¡GANASTE! 🎉
-<button onclick="location.reload()">Reiniciar</button>
-</div>
+<div id="win"></div>
 
 <script>
+// 👤 REGISTRO DE USUARIO
+let nombre = localStorage.getItem("jugador");
+
+if(!nombre){
+  nombre = prompt("Ingresa tu apodo:");
+  while(!nombre || nombre.trim()===""){
+    nombre = prompt("Ingresa un apodo válido:");
+  }
+  localStorage.setItem("jugador",nombre);
+}
+
+document.getElementById("usuario").innerText = "👋 Jugador: " + nombre;
+
+// resto del juego
 const canvas=document.getElementById("canvas");
 const ctx=canvas.getContext("2d");
 
@@ -176,6 +196,27 @@ const palabras=[
   "ALEACIONES","HIERRO","METAL","FERROSO",
   "CARBONO","NOFERROSOS","FUSION","MEZCLA","HOMOGENEA"
 ];
+
+// ⏱️ TEMPORIZADOR
+let tiempo = 0;
+let intervalo;
+
+function formatearTiempo(seg){
+  let min = Math.floor(seg / 60);
+  let sec = seg % 60;
+  return `${min.toString().padStart(2,"0")}:${sec.toString().padStart(2,"0")}`;
+}
+
+function iniciarTiempo(){
+  intervalo = setInterval(()=>{
+    tiempo++;
+    document.getElementById("tiempo").innerText = formatearTiempo(tiempo);
+  },1000);
+}
+
+function detenerTiempo(){
+  clearInterval(intervalo);
+}
 
 // 🔊 AUDIO
 const audio=new (window.AudioContext||window.webkitAudioContext)();
@@ -200,19 +241,16 @@ function beep(f,t,v=0.5){
   o.stop(audio.currentTime+t);
 }
 
-// ✔️ correcto
 const okSound=()=>{
   beep(800,0.1,0.6);
   setTimeout(()=>beep(1100,0.1,0.6),100);
 };
 
-// ❌ error fuerte
 const noSound=()=>{
   beep(120,0.25,0.9);
   setTimeout(()=>beep(90,0.25,0.9),120);
 };
 
-// 🎉 win
 const winSound=()=>{
   [600,800,1000,1200,1400,1600].forEach((f,i)=>{
     setTimeout(()=>beep(f,0.12,0.7),i*120);
@@ -220,7 +258,6 @@ const winSound=()=>{
   setTimeout(()=>beep(1800,0.3,0.8),800);
 };
 
-// 🎉 confeti
 function confeti(){
   for(let i=0;i<100;i++){
     let d=document.createElement("div");
@@ -233,7 +270,6 @@ function confeti(){
   }
 }
 
-// ✔️❌ ANIMACIÓN (RESTAURADA)
 function icono(tipo,x,y){
   let d=document.createElement("div");
   d.className="icono";
@@ -244,7 +280,6 @@ function icono(tipo,x,y){
   setTimeout(()=>d.remove(),700);
 }
 
-// 📱 canvas
 function ajustar(){
   const size=Math.min(window.innerWidth*0.9,500);
   const dpr=window.devicePixelRatio||1;
@@ -271,7 +306,6 @@ function celda(x,y){
   return {fila:Math.floor(y/s),col:Math.floor(x/s)};
 }
 
-// colocar
 function colocar(p){
   const dirs=[{df:0,dc:1},{df:1,dc:0},{df:1,dc:1},{df:-1,dc:1}];
   let ok=false;
@@ -313,7 +347,6 @@ function rellenar(){
 palabras.forEach(colocar);
 rellenar();
 
-// dibujar
 function dibujar(){
   const s=sizeCelda();
 
@@ -343,7 +376,6 @@ function dibujar(){
   }
 }
 
-// interacción
 let arrastrando=false;
 
 canvas.addEventListener("mousedown",start);
@@ -393,35 +425,35 @@ function end(){
   verificar();
 }
 
-// verificar
 function verificar(){
   let palabra=seleccion.map(c=>grid[c.fila][c.col]).join("");
-
   const r=canvas.getBoundingClientRect();
 
   if(palabras.includes(palabra) && !encontradas.includes(palabra)){
     encontradas.push(palabra);
     marcadas.push(...seleccion);
-
     okSound();
     icono("ok",r.left+r.width/2,r.top+r.height/2);
   } else {
     error=[...seleccion];
-
     noSound();
     icono("no",r.left+r.width/2,r.top+r.height/2);
-
     canvas.classList.add("shake");
     setTimeout(()=>canvas.classList.remove("shake"),300);
-
     setTimeout(()=>{error=[];dibujar();},400);
   }
 
   actualizar();
 
   if(encontradas.length===palabras.length){
+    detenerTiempo();
     confeti();
     winSound();
+    document.getElementById("win").innerHTML = `
+      👤 ${nombre}<br>
+      ⏱️ Tiempo: ${formatearTiempo(tiempo)}
+      <br><button onclick="location.reload()">Reiniciar</button>
+    `;
     document.getElementById("win").style.display="flex";
   }
 
@@ -431,7 +463,6 @@ function verificar(){
   },300);
 }
 
-// lista
 function actualizar(){
   document.getElementById("lista").innerHTML =
     palabras.map(p=>{
@@ -442,6 +473,7 @@ function actualizar(){
   document.getElementById("score").innerText=encontradas.length;
 }
 
+iniciarTiempo();
 actualizar();
 dibujar();
 </script>
