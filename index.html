@@ -169,7 +169,6 @@
 <div id="win"></div>
 
 <script>
-// 👤 REGISTRO DE USUARIO
 let nombre = localStorage.getItem("jugador");
 
 if(!nombre){
@@ -182,7 +181,24 @@ if(!nombre){
 
 document.getElementById("usuario").innerText = "👋 Jugador: " + nombre;
 
-// resto del juego
+function guardarRanking(nombre, tiempo){
+  let ranking = JSON.parse(localStorage.getItem("ranking")) || [];
+  ranking.push({nombre, tiempo});
+  ranking.sort((a,b)=>a.tiempo - b.tiempo);
+  localStorage.setItem("ranking", JSON.stringify(ranking));
+}
+
+function obtenerRankingHTML(){
+  let ranking = JSON.parse(localStorage.getItem("ranking")) || [];
+  let html = "<h3>🏆 Ranking</h3>";
+  ranking.slice(0,10).forEach((r,i)=>{
+    let pos = i+1;
+    let icono = pos==1?"🥇":pos==2?"🥈":pos==3?"🥉":pos+".";
+    html += `<div>${icono} ${r.nombre} - ${formatearTiempo(r.tiempo)}</div>`;
+  });
+  return html;
+}
+
 const canvas=document.getElementById("canvas");
 const ctx=canvas.getContext("2d");
 
@@ -197,7 +213,6 @@ const palabras=[
   "CARBONO","NOFERROSOS","FUSION","MEZCLA","HOMOGENEA"
 ];
 
-// ⏱️ TEMPORIZADOR
 let tiempo = 0;
 let intervalo;
 
@@ -218,7 +233,6 @@ function detenerTiempo(){
   clearInterval(intervalo);
 }
 
-// 🔊 AUDIO
 const audio=new (window.AudioContext||window.webkitAudioContext)();
 
 function beep(f,t,v=0.5){
@@ -447,11 +461,14 @@ function verificar(){
 
   if(encontradas.length===palabras.length){
     detenerTiempo();
+    guardarRanking(nombre, tiempo);
     confeti();
     winSound();
     document.getElementById("win").innerHTML = `
       👤 ${nombre}<br>
       ⏱️ Tiempo: ${formatearTiempo(tiempo)}
+      <br><br>
+      ${obtenerRankingHTML()}
       <br><button onclick="location.reload()">Reiniciar</button>
     `;
     document.getElementById("win").style.display="flex";
