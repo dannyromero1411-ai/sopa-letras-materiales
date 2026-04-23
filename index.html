@@ -15,14 +15,60 @@ body{
   align-items:center;
 }
 
+.container{
+  width:100%;
+  max-width:500px;
+  text-align:center;
+  padding:10px;
+}
+
+button{
+  padding:12px 25px;
+  border:none;
+  border-radius:12px;
+  background:#2f5d3a;
+  color:white;
+  font-size:16px;
+  cursor:pointer;
+  margin-top:10px;
+}
+
+input{
+  padding:10px;
+  border-radius:10px;
+  border:2px solid #2f5d3a;
+  margin-top:10px;
+}
+
 canvas{
   border:3px solid #2f5d3a;
   background:white;
   border-radius:12px;
-  width:90vw;
-  max-width:500px;
+  width:100%;
   aspect-ratio:1/1;
   touch-action:none;
+  margin-top:15px;
+}
+
+#lista{
+  margin-top:15px;
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:6px;
+}
+
+.word.ok{
+  background:#b7f5c2;
+  text-decoration:line-through;
+  border-radius:6px;
+  padding:2px;
+}
+
+#rankingInicio{
+  margin-top:15px;
+  background:white;
+  padding:10px;
+  border-radius:10px;
 }
 
 #inicio{
@@ -36,40 +82,7 @@ canvas{
   z-index:9999;
 }
 
-#inicio input{
-  padding:10px;
-  margin:10px;
-  border-radius:8px;
-}
-
-#inicio button{
-  padding:10px 20px;
-  border:none;
-  border-radius:10px;
-  background:#2f5d3a;
-  color:white;
-}
-
-#rankingInicio{
-  margin-top:10px;
-  font-size:14px;
-}
-
-#lista{
-  margin-top:10px;
-  display:grid;
-  grid-template-columns:1fr 1fr;
-  gap:6px;
-  width:90vw;
-  max-width:500px;
-}
-
-.word.ok{
-  background:#b7f5c2;
-  text-decoration:line-through;
-}
-
-#finalScreen{
+#final{
   position:fixed;
   inset:0;
   background:rgba(0,0,0,0.85);
@@ -78,6 +91,7 @@ canvas{
   align-items:center;
   flex-direction:column;
   color:white;
+  z-index:99999;
 }
 
 .icono{
@@ -98,6 +112,20 @@ canvas{
   50%{transform:translateX(6px);}
   75%{transform:translateX(-6px);}
 }
+
+.confeti{
+  position:fixed;
+  width:8px;
+  height:8px;
+  top:-10px;
+  animation:fall 2s linear forwards;
+}
+@keyframes fall{
+  to{
+    transform:translateY(100vh) rotate(360deg);
+    opacity:0;
+  }
+}
 </style>
 </head>
 
@@ -110,197 +138,175 @@ canvas{
   <div id="rankingInicio"></div>
 </div>
 
-<canvas id="canvas"></canvas>
-<div>⏱️ <span id="tiempo">00:00</span></div>
-<div id="lista"></div>
+<div class="container">
+  <canvas id="canvas"></canvas>
+  <div style="margin-top:10px;">⏱️ <span id="tiempo">00:00</span></div>
+  <div id="lista"></div>
+</div>
 
-<div id="finalScreen">
-  <h2>🎉 Terminado</h2>
-  <div id="finalInfo"></div>
-  <div id="finalLugar"></div>
+<div id="final">
+  <h2>🎉 Resultado</h2>
+  <div id="resultado"></div>
   <button onclick="location.reload()">Reiniciar</button>
 </div>
 
 <script>
 
-/* VARIABLES */
-let nombre = localStorage.getItem("jugador") || "";
-let size = 12;
+/* ===== APODO ===== */
+let nombreGuardado = localStorage.getItem("jugador");
 
-let grid=[], seleccion=[], marcadas=[], encontradas=[], error=[];
+document.addEventListener("DOMContentLoaded", ()=>{
+  if(nombreGuardado){
+    let input = document.getElementById("nombreInput");
+    input.value = nombreGuardado;
+    input.disabled = true;
+  }
+});
+
+/* ===== VARIABLES ===== */
+let nombre="";
+let tamaño=12;
+let grid=[], seleccion=[], marcadas=[], error=[], encontradas=[];
+let palabras=["ALEACIONES","HIERRO","METAL","CARBONO","FUSION","MEZCLA","HOMOGENEA"];
 let tiempo=0, intervalo;
-
-const palabras=[
-"ALEACIONES","HIERRO","METAL",
-"CARBONO","FUSION","MEZCLA","HOMOGENEA"
-];
 
 const canvas=document.getElementById("canvas");
 const ctx=canvas.getContext("2d");
 
+/* ===== AUDIO ===== */
 let audio;
-
-/* 🔊 AUDIO */
 function initAudio(){
-  audio = new (window.AudioContext || window.webkitAudioContext)();
-  if(audio.state==="suspended") audio.resume();
+  audio=new (window.AudioContext||window.webkitAudioContext)();
 }
-
 function beep(f,t,v=0.5){
-  if(!audio) return;
   let o=audio.createOscillator();
   let g=audio.createGain();
-
   o.frequency.value=f;
-  o.type="square";
-
-  g.gain.value=v;
-  g.gain.setValueAtTime(v,audio.currentTime);
-  g.gain.exponentialRampToValueAtTime(0.001,audio.currentTime+t);
-
   o.connect(g);
   g.connect(audio.destination);
-
+  g.gain.setValueAtTime(v,audio.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.001,audio.currentTime+t);
   o.start();
   o.stop(audio.currentTime+t);
 }
+function okSound(){beep(900,0.1);}
+function noSound(){beep(180,0.35,0.9);}
+function winSound(){beep(600,0.2);setTimeout(()=>beep(1000,0.2),120);}
 
-function okSound(){
-  beep(800,0.1,0.6);
-  setTimeout(()=>beep(1100,0.1,0.6),100);
+/* ===== RANKING ===== */
+function mostrarRanking(){
+  let r=JSON.parse(localStorage.getItem("ranking"))||[];
+  let html="<b>🏆 Ranking</b><br>";
+  if(r.length===0) html+="Sin registros";
+  else r.slice(0,10).forEach((x,i)=>{
+    let t=new Date(x.tiempo*1000).toISOString().substr(14,5);
+    html+=`${i+1}. ${x.nombre} - ${t}<br>`;
+  });
+  document.getElementById("rankingInicio").innerHTML=html;
 }
 
-function noSound(){
-  beep(200,0.25,0.9);
-  setTimeout(()=>beep(120,0.25,0.9),120);
-}
-
-function winSound(){
-  beep(600,0.15);
-  setTimeout(()=>beep(800,0.15),100);
-  setTimeout(()=>beep(1000,0.2),200);
-}
-
-/* RANKING */
-function getRanking(){
-  return JSON.parse(localStorage.getItem("ranking")) || [];
-}
-
-function saveRanking(nombre, tiempo){
-  let r=getRanking();
+function guardarRanking(nombre, tiempo){
+  let r=JSON.parse(localStorage.getItem("ranking"))||[];
   let j=r.find(x=>x.nombre===nombre);
 
   if(j){
     if(tiempo<j.tiempo) j.tiempo=tiempo;
-  } else {
+  }else{
     r.push({nombre,tiempo});
   }
 
   r.sort((a,b)=>a.tiempo-b.tiempo);
   localStorage.setItem("ranking",JSON.stringify(r));
-  return r;
+
+  return r.findIndex(x=>x.nombre===nombre)+1;
 }
 
-function mostrarRanking(){
-  let r=getRanking();
-  let html="<h3>🏆 Ranking</h3>";
+window.onload=mostrarRanking;
 
-  if(r.length===0){
-    html+="<div>Sin registros</div>";
-  } else {
-    r.slice(0,10).forEach((x,i)=>{
-      let t=new Date(x.tiempo*1000).toISOString().substr(14,5);
-      html+=`<div>${i+1}. ${x.nombre} - ${t}</div>`;
-    });
-  }
-
-  document.getElementById("rankingInicio").innerHTML=html;
-}
-
-/* INICIO */
-window.onload=()=>{
-  if(nombre){
-    document.getElementById("nombreInput").value=nombre;
-    document.getElementById("nombreInput").disabled=true;
-  }
-  mostrarRanking();
-};
-
+/* ===== INICIO ===== */
 function startGame(){
-  initAudio();
+  let input = document.getElementById("nombreInput");
 
-  if(!nombre){
-    let v=document.getElementById("nombreInput").value;
-    if(!v) return;
-    nombre=v;
-    localStorage.setItem("jugador",nombre);
+  nombre = input.value;
+  if(!nombre)return;
+
+  if(!localStorage.getItem("jugador")){
+    localStorage.setItem("jugador", nombre);
+    input.disabled = true;
   }
 
+  initAudio();
   document.getElementById("inicio").style.display="none";
-  init();
+  iniciar();
 }
 
-/* JUEGO (todo lo demás igual y funcional) */
+/* ===== JUEGO ===== */
+function iniciar(){
+  ajustar();
 
-function init(){
-  ajustarCanvas();
-  grid=Array.from({length:size},()=>Array(size).fill(""));
-  palabras.forEach(place);
-  fill();
-  draw();
-  timer();
-  update();
+  grid=Array.from({length:tamaño},()=>Array(tamaño).fill(""));
+  palabras.forEach(colocar);
+  rellenar();
+
+  dibujar();
+  iniciarTiempo();
+  actualizar();
 }
 
-function ajustarCanvas(){
+function ajustar(){
   let s=canvas.clientWidth;
   canvas.width=s;
   canvas.height=s;
 }
 
-function place(word){
+function colocar(p){
+  const dirs=[[0,1],[1,0],[1,1],[-1,1]];
   let ok=false;
-  while(!ok){
-    let r=Math.floor(Math.random()*size);
-    let c=Math.floor(Math.random()*size);
-    let dirs=[[0,1],[1,0],[1,1],[-1,1]];
-    let d=dirs[Math.floor(Math.random()*dirs.length)];
 
-    let test=true;
-    for(let i=0;i<word.length;i++){
-      let nr=r+d[0]*i,nc=c+d[1]*i;
-      if(nr<0||nc<0||nr>=size||nc>=size||grid[nr][nc]!=""){
-        test=false; break;
+  while(!ok){
+    let d=dirs[Math.floor(Math.random()*dirs.length)];
+    let f=Math.floor(Math.random()*tamaño);
+    let c=Math.floor(Math.random()*tamaño);
+
+    let posible=true;
+
+    for(let i=0;i<p.length;i++){
+      let nf=f+d[0]*i,nc=c+d[1]*i;
+      if(nf<0||nc<0||nf>=tamaño||nc>=tamaño||grid[nf][nc]!=""){
+        posible=false;break;
       }
     }
 
-    if(test){
-      for(let i=0;i<word.length;i++){
-        grid[r+d[0]*i][c+d[1]*i]=word[i];
+    if(posible){
+      for(let i=0;i<p.length;i++){
+        grid[f+d[0]*i][c+d[1]*i]=p[i];
       }
       ok=true;
     }
   }
 }
 
-function fill(){
-  let a="ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-  for(let i=0;i<size;i++){
-    for(let j=0;j<size;j++){
-      if(!grid[i][j]){
-        grid[i][j]=a[Math.floor(Math.random()*26)];
+function rellenar(){
+  const letras="ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  for(let i=0;i<tamaño;i++){
+    for(let j=0;j<tamaño;j++){
+      if(grid[i][j]==""){
+        grid[i][j]=letras[Math.floor(Math.random()*26)];
       }
     }
   }
 }
 
-function draw(){
-  let s=canvas.width/size;
+function dibujar(){
+  let s=canvas.width/tamaño;
+
   ctx.clearRect(0,0,canvas.width,canvas.height);
   ctx.font=(s*0.6)+"px Arial";
+  ctx.textAlign="center";
+  ctx.textBaseline="middle";
 
-  for(let i=0;i<size;i++){
-    for(let j=0;j<size;j++){
+  for(let i=0;i<tamaño;i++){
+    for(let j=0;j<tamaño;j++){
       ctx.strokeRect(j*s,i*s,s,s);
       ctx.fillStyle="#000";
       ctx.fillText(grid[i][j],j*s+s/2,i*s+s/2);
@@ -310,77 +316,73 @@ function draw(){
   ctx.fillStyle="rgba(0,200,100,0.4)";
   marcadas.forEach(c=>ctx.fillRect(c.col*s,c.fila*s,s,s));
 
-  ctx.fillStyle="rgba(255,0,0,0.3)";
+  ctx.fillStyle="rgba(255,0,0,0.4)";
   error.forEach(c=>ctx.fillRect(c.col*s,c.fila*s,s,s));
 
   ctx.fillStyle="rgba(0,150,255,0.3)";
   seleccion.forEach(c=>ctx.fillRect(c.col*s,c.fila*s,s,s));
 }
 
-/* INPUT y CHECK siguen funcionando */
+/* INPUT */
 let active=false;
 
-canvas.addEventListener("mousedown",e=>{
-  active=true;
-  seleccion=[getPos(e.clientX,e.clientY)];
-});
-canvas.addEventListener("mousemove",e=>{
-  if(active) updateSel(e.clientX,e.clientY);
-});
+canvas.addEventListener("mousedown",start);
+canvas.addEventListener("mousemove",move);
 canvas.addEventListener("mouseup",end);
 
-canvas.addEventListener("touchstart",e=>{
-  e.preventDefault();
-  active=true;
-  let t=e.touches[0];
-  seleccion=[getPos(t.clientX,t.clientY)];
-});
-canvas.addEventListener("touchmove",e=>{
-  e.preventDefault();
-  if(active){
-    let t=e.touches[0];
-    updateSel(t.clientX,t.clientY);
-  }
-});
+canvas.addEventListener("touchstart",start);
+canvas.addEventListener("touchmove",(e)=>{e.preventDefault();move(e);},{passive:false});
 canvas.addEventListener("touchend",end);
 
-function getPos(x,y){
+function getPos(e){
   let r=canvas.getBoundingClientRect();
-  let s=canvas.width/size;
-  return {fila:Math.floor((y-r.top)/s),col:Math.floor((x-r.left)/s)};
+  let x=(e.touches?e.touches[0].clientX:e.clientX)-r.left;
+  let y=(e.touches?e.touches[0].clientY:e.clientY)-r.top;
+  let s=canvas.width/tamaño;
+  return {fila:Math.floor(y/s),col:Math.floor(x/s)};
 }
 
-function updateSel(x,y){
-  let p=getPos(x,y);
+function start(e){
+  active=true;
+  seleccion=[getPos(e)];
+}
+
+function move(e){
+  if(!active)return;
+
+  let p=getPos(e);
   let i=seleccion[0];
 
   let df=p.fila-i.fila;
   let dc=p.col-i.col;
 
-  let steps=Math.max(Math.abs(df),Math.abs(dc));
-  let pf=df?df/Math.abs(df):0;
-  let pc=dc?dc/Math.abs(dc):0;
+  if(df===0||dc===0||Math.abs(df)===Math.abs(dc)){
+    seleccion=[];
+    let f=i.fila,c=i.col;
+    let pf=Math.sign(df),pc=Math.sign(dc);
 
-  seleccion=[i];
-  for(let k=1;k<=steps;k++){
-    seleccion.push({fila:i.fila+pf*k,col:i.col+pc*k});
+    while(true){
+      seleccion.push({fila:f,col:c});
+      if(f===p.fila&&c===p.col)break;
+      f+=pf;c+=pc;
+    }
   }
 
-  draw();
+  dibujar();
 }
 
 function end(){
   if(!active)return;
   active=false;
-  check();
+  verificar();
 }
 
-function check(){
-  let w=seleccion.map(c=>grid[c.fila][c.col]).join("");
-  let wr=[...seleccion].reverse().map(c=>grid[c.fila][c.col]).join("");
+function verificar(){
+  let palabra=seleccion.map(c=>grid[c.fila][c.col]).join("");
+  let rev=[...seleccion].reverse().map(c=>grid[c.fila][c.col]).join("");
 
-  let ok=palabras.includes(w)?w:
-          palabras.includes(wr)?wr:null;
+  let ok = palabras.includes(palabra)?palabra:
+           palabras.includes(rev)?rev:null;
 
   if(ok && !encontradas.includes(ok)){
     encontradas.push(ok);
@@ -394,16 +396,31 @@ function check(){
 
     canvas.classList.add("shake");
     setTimeout(()=>canvas.classList.remove("shake"),300);
-    setTimeout(()=>{error=[]; draw();},250);
+    setTimeout(()=>{error=[];dibujar();},300);
   }
 
   seleccion=[];
-  update();
-  draw();
+  actualizar();
+  dibujar();
 
   if(encontradas.length===palabras.length){
-    finish();
+    finalJuego();
   }
+}
+
+function finalJuego(){
+  clearInterval(intervalo);
+
+  let pos=guardarRanking(nombre,tiempo);
+  let lugar = pos==1?"🥇":pos==2?"🥈":pos==3?"🥉":"#"+pos;
+
+  document.getElementById("resultado").innerHTML=
+    `⏱️ ${document.getElementById("tiempo").innerText}<br>🏆 ${lugar}`;
+
+  document.getElementById("final").style.display="flex";
+
+  winSound();
+  confeti();
 }
 
 function icono(t){
@@ -416,7 +433,7 @@ function icono(t){
   setTimeout(()=>d.remove(),600);
 }
 
-function update(){
+function actualizar(){
   document.getElementById("lista").innerHTML=
     palabras.map(p=>{
       let ok=encontradas.includes(p);
@@ -424,7 +441,7 @@ function update(){
     }).join("");
 }
 
-function timer(){
+function iniciarTiempo(){
   intervalo=setInterval(()=>{
     tiempo++;
     document.getElementById("tiempo").innerText=
@@ -432,20 +449,15 @@ function timer(){
   },1000);
 }
 
-function finish(){
-  clearInterval(intervalo);
-  let r=saveRanking(nombre,tiempo);
-  let pos=r.findIndex(x=>x.nombre===nombre)+1;
-
-  let lugar=pos===1?"🥇 Lugar 1":pos===2?"🥈 Lugar 2":pos===3?"🥉 Lugar 3":"#"+pos;
-
-  winSound();
-
-  document.getElementById("finalInfo").innerHTML=
-    "⏱️ Tiempo: "+new Date(tiempo*1000).toISOString().substr(14,5);
-
-  document.getElementById("finalLugar").innerHTML=lugar;
-  document.getElementById("finalScreen").style.display="flex";
+function confeti(){
+  for(let i=0;i<80;i++){
+    let d=document.createElement("div");
+    d.className="confeti";
+    d.style.left=Math.random()*100+"vw";
+    d.style.background=`hsl(${Math.random()*360},70%,60%)`;
+    document.body.appendChild(d);
+    setTimeout(()=>d.remove(),2000);
+  }
 }
 
 </script>
