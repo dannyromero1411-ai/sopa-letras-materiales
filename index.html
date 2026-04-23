@@ -9,7 +9,7 @@
 body{
   margin:0;
   font-family:Arial;
-  background:#f5f1e8;
+  background:linear-gradient(135deg,#f5f1e8,#e8f5ec);
   display:flex;
   flex-direction:column;
   align-items:center;
@@ -41,15 +41,16 @@ input{
 }
 
 canvas{
-  border:3px solid #2f5d3a;
+  border:4px solid #2f5d3a;
   background:white;
-  border-radius:12px;
+  border-radius:14px;
   width:100%;
   aspect-ratio:1/1;
   touch-action:none;
   margin-top:15px;
 }
 
+/* LISTA */
 #lista{
   margin-top:15px;
   display:grid;
@@ -65,10 +66,11 @@ canvas{
   padding:2px;
 }
 
+/* INICIO */
 #inicio{
   position:fixed;
   inset:0;
-  background:#f5f1e8;
+  background:linear-gradient(135deg,#f5f1e8,#dff3e3);
   display:flex;
   flex-direction:column;
   justify-content:center;
@@ -83,13 +85,13 @@ canvas{
   border-radius:10px;
   width:80%;
   max-width:300px;
-  text-align:left;
 }
 
+/* FINAL */
 #final{
   position:fixed;
   inset:0;
-  background:rgba(0,0,0,0.9);
+  background:rgba(0,0,0,0.85);
   display:none;
   justify-content:center;
   align-items:center;
@@ -99,12 +101,10 @@ canvas{
   text-align:center;
 }
 
-#final h2{font-size:40px;}
-#resultado{font-size:32px;margin:20px;}
-
+/* ANIMACIONES */
 .icono{
   position:fixed;
-  font-size:50px;
+  font-size:55px;
   animation:pop .6s forwards;
 }
 
@@ -115,10 +115,28 @@ canvas{
 }
 
 .shake{animation:shake .3s;}
+
 @keyframes shake{
   25%{transform:translateX(-6px);}
   50%{transform:translateX(6px);}
   75%{transform:translateX(-6px);}
+}
+
+/* CONFETI */
+.confeti{
+  position:fixed;
+  width:8px;
+  height:8px;
+  top:-10px;
+  animation:fall 3s linear forwards;
+  z-index:999999;
+}
+
+@keyframes fall{
+  to{
+    transform:translateY(110vh) rotate(720deg);
+    opacity:0;
+  }
 }
 </style>
 </head>
@@ -129,7 +147,6 @@ canvas{
   <h2>🎮 Sopa de Letras</h2>
   <input id="nombreInput" placeholder="Apodo">
   <button onclick="startGame()">Comenzar</button>
-
   <div id="ranking"></div>
 </div>
 
@@ -140,15 +157,14 @@ canvas{
 </div>
 
 <div id="final">
-  <h2>🎉 Resultado</h2>
+  <h2>🎉 ¡Ganaste!</h2>
   <div id="resultado"></div>
   <button onclick="location.reload()">Reiniciar</button>
 </div>
 
 <script>
 
-/* ===== VARIABLES ===== */
-let nombre="";
+/* ===== CONFIG ===== */
 let tamaño=16;
 
 let palabras=[
@@ -157,129 +173,154 @@ let palabras=[
 "SOLUTO","SOLVENTE","SOLUCION","ACERO","BRONCE","LATON"
 ];
 
-let grid=[], seleccion=[], marcadas=[], error=[], encontradas=[];
-let tiempo=0, intervalo;
+let grid=[], seleccion=[], marcadas=[], encontradas=[];
+let tiempo=0, intervalo, nombre="";
 
 const canvas=document.getElementById("canvas");
 const ctx=canvas.getContext("2d");
+const input=document.getElementById("nombreInput");
+
+/* ===== APODO ===== */
+window.addEventListener("load",()=>{
+  let a=localStorage.getItem("apodo");
+  if(a){
+    nombre=a;
+    input.value=a;
+    input.disabled=true;
+  }
+});
+
+/* ===== AUDIO (🔊 MÁS FUERTE) ===== */
+let audioCtx;
+
+function initAudio(){
+  audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+}
+
+function beep(f,d){
+  let o=audioCtx.createOscillator();
+  let g=audioCtx.createGain();
+
+  o.frequency.value=f;
+  o.type="sine";
+
+  o.connect(g);
+  g.connect(audioCtx.destination);
+
+  // 🔥 VOLUMEN FUERTE REAL
+  g.gain.setValueAtTime(1.8,audioCtx.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+d);
+
+  o.start();
+  o.stop(audioCtx.currentTime+d);
+}
+
+function okSound(){beep(950,0.12);}
+function noSound(){beep(180,0.35);}
+function winSound(){
+  beep(600,0.2);
+  setTimeout(()=>beep(1000,0.25),120);
+  setTimeout(()=>beep(1300,0.2),260);
+}
+
+/* ===== CONFETI ===== */
+function confeti(){
+  for(let i=0;i<90;i++){
+    let d=document.createElement("div");
+    d.className="confeti";
+    d.style.left=Math.random()*100+"vw";
+    d.style.background=`hsl(${Math.random()*360},100%,50%)`;
+    d.style.animationDuration=(2+Math.random()*2)+"s";
+    document.body.appendChild(d);
+    setTimeout(()=>d.remove(),4000);
+  }
+}
 
 /* ===== RANKING ===== */
+function guardarRanking(nombre,tiempo){
+  let r=JSON.parse(localStorage.getItem("ranking"))||[];
+  let j=r.find(x=>x.nombre===nombre);
+
+  if(j){
+    if(tiempo<j.tiempo) j.tiempo=tiempo;
+  }else{
+    r.push({nombre,tiempo});
+  }
+
+  r.sort((a,b)=>a.tiempo-b.tiempo);
+  localStorage.setItem("ranking",JSON.stringify(r));
+
+  return r.findIndex(x=>x.nombre===nombre)+1;
+}
+
 function mostrarRanking(){
-  let ranking = JSON.parse(localStorage.getItem("ranking")) || [];
+  let r=JSON.parse(localStorage.getItem("ranking"))||[];
+  let html="<b>🏆 Ranking</b><br>";
 
-  let html = "<b>🏆 Ranking</b><br>";
+  if(!r.length) html+="Sin registros";
+  else r.slice(0,10).forEach((x,i)=>{
+    let t=new Date(x.tiempo*1000).toISOString().substr(14,5);
+    let e=i==0?"🥇":i==1?"🥈":i==2?"🥉":"🏅";
+    html+=`${e} ${x.nombre} - ${t}<br>`;
+  });
 
-  if(ranking.length === 0){
-    html += "Sin registros";
-  } else {
-    ranking.slice(0,10).forEach((r,i)=>{
-      let tiempo = new Date(r.tiempo*1000).toISOString().substr(14,5);
-      let lugar = i==0?"🥇":i==1?"🥈":i==2?"🥉":"#"+(i+1);
-
-      html += `${lugar} ${r.nombre} - ${tiempo}<br>`;
-    });
-  }
-
-  document.getElementById("ranking").innerHTML = html;
+  document.getElementById("ranking").innerHTML=html;
 }
 
-function guardarRanking(nombre, tiempo){
-  let ranking = JSON.parse(localStorage.getItem("ranking")) || [];
-
-  let jugador = ranking.find(r => r.nombre === nombre);
-
-  if(jugador){
-    if(tiempo < jugador.tiempo){
-      jugador.tiempo = tiempo;
-    }
-  } else {
-    ranking.push({nombre, tiempo});
-  }
-
-  ranking.sort((a,b)=>a.tiempo - b.tiempo);
-  localStorage.setItem("ranking", JSON.stringify(ranking));
-
-  return ranking.findIndex(r=>r.nombre===nombre)+1;
-}
-
-/* 🔥 MOSTRAR DESDE EL INICIO */
 mostrarRanking();
 
-/* ===== AUDIO ===== */
-let audio;
-function initAudio(){
-  audio=new (window.AudioContext||window.webkitAudioContext)();
-}
-function beep(f,t,v=0.5){
-  let o=audio.createOscillator();
-  let g=audio.createGain();
-  o.frequency.value=f;
-  o.connect(g);
-  g.connect(audio.destination);
-  g.gain.setValueAtTime(v,audio.currentTime);
-  g.gain.exponentialRampToValueAtTime(0.001,audio.currentTime+t);
-  o.start();
-  o.stop(audio.currentTime+t);
-}
-function okSound(){beep(900,0.1);}
-function noSound(){beep(200,0.4,1);}
-function winSound(){beep(600,0.2);setTimeout(()=>beep(1000,0.2),120);}
-
-/* ===== INICIO ===== */
+/* ===== START ===== */
 function startGame(){
-  nombre=document.getElementById("nombreInput").value;
-  if(!nombre)return;
+
+  if(!localStorage.getItem("apodo")){
+    nombre=input.value;
+    if(!nombre) return;
+    localStorage.setItem("apodo",nombre);
+    input.disabled=true;
+  }else{
+    nombre=localStorage.getItem("apodo");
+  }
 
   initAudio();
   document.getElementById("inicio").style.display="none";
   iniciar();
 }
 
-/* ===== JUEGO ===== */
+/* ===== GAME ===== */
 function iniciar(){
   ajustar();
 
   grid=Array.from({length:tamaño},()=>Array(tamaño).fill(""));
+
   palabras.forEach(colocar);
   rellenar();
 
   dibujar();
-  iniciarTiempo();
-  actualizar();
+  timer();
+  lista();
 }
 
-/* CANVAS HD */
-function ajustar(){
-  const size=canvas.clientWidth;
-  const dpr=window.devicePixelRatio||1;
-
-  canvas.width=size*dpr;
-  canvas.height=size*dpr;
-
-  canvas.style.width=size+"px";
-  canvas.style.height=size+"px";
-
-  ctx.setTransform(dpr,0,0,dpr,0,0);
-}
-
-const dirs=[[0,1],[1,0],[1,1],[-1,1],[0,-1],[-1,0],[-1,-1],[1,-1]];
+/* ===== GRID ===== */
+const dirs=[[0,1],[1,0],[0,-1],[-1,0],[1,1],[-1,-1],[1,-1],[-1,1]];
 
 function colocar(p){
   let ok=false;
+
   while(!ok){
     let d=dirs[Math.floor(Math.random()*dirs.length)];
     let f=Math.floor(Math.random()*tamaño);
     let c=Math.floor(Math.random()*tamaño);
 
-    let posible=true;
+    let valid=true;
+
     for(let i=0;i<p.length;i++){
       let nf=f+d[0]*i,nc=c+d[1]*i;
-      if(nf<0||nc<0||nf>=tamaño||nc>=tamaño||grid[nf][nc]!=""){
-        posible=false;break;
+      if(nf<0||nc<0||nf>=tamaño||nc>=tamaño||grid[nf][nc]){
+        valid=false;break;
       }
     }
 
-    if(posible){
+    if(valid){
       for(let i=0;i<p.length;i++){
         grid[f+d[0]*i][c+d[1]*i]=p[i];
       }
@@ -289,27 +330,41 @@ function colocar(p){
 }
 
 function rellenar(){
-  const letras="ABCDEFGHIJKLMNOPQRSTUVWXYZÑ";
+  const a="ABCDEFGHIJKLMNOPQRSTUVWXYZÑ";
   for(let i=0;i<tamaño;i++){
     for(let j=0;j<tamaño;j++){
-      if(grid[i][j]==""){
-        grid[i][j]=letras[Math.floor(Math.random()*letras.length)];
+      if(!grid[i][j]){
+        grid[i][j]=a[Math.floor(Math.random()*a.length)];
       }
     }
   }
+}
+
+/* ===== DRAW ===== */
+function ajustar(){
+  let s=canvas.clientWidth;
+  let dpr=window.devicePixelRatio||1;
+
+  canvas.width=s*dpr;
+  canvas.height=s*dpr;
+  ctx.setTransform(dpr,0,0,dpr,0,0);
 }
 
 function dibujar(){
   let s=canvas.clientWidth/tamaño;
 
   ctx.clearRect(0,0,canvas.width,canvas.height);
+
   ctx.font=(s*0.65)+"px Arial";
   ctx.textAlign="center";
   ctx.textBaseline="middle";
 
   for(let i=0;i<tamaño;i++){
     for(let j=0;j<tamaño;j++){
+
+      ctx.strokeStyle="#2f5d3a";
       ctx.strokeRect(j*s,i*s,s,s);
+
       ctx.fillStyle="#000";
       ctx.fillText(grid[i][j],j*s+s/2,i*s+s/2);
     }
@@ -318,41 +373,22 @@ function dibujar(){
   ctx.fillStyle="rgba(0,200,100,0.4)";
   marcadas.forEach(c=>ctx.fillRect(c.col*s,c.fila*s,s,s));
 
-  ctx.fillStyle="rgba(255,0,0,0.4)";
-  error.forEach(c=>ctx.fillRect(c.col*s,c.fila*s,s,s));
-
   ctx.fillStyle="rgba(0,150,255,0.3)";
   seleccion.forEach(c=>ctx.fillRect(c.col*s,c.fila*s,s,s));
 }
 
-/* INPUT */
+/* ===== INPUT ===== */
 let active=false;
 
-canvas.addEventListener("mousedown",start);
-canvas.addEventListener("mousemove",move);
-canvas.addEventListener("mouseup",end);
-
-canvas.addEventListener("touchstart",start);
-canvas.addEventListener("touchmove",(e)=>{e.preventDefault();move(e);},{passive:false});
-canvas.addEventListener("touchend",end);
-
-function getPos(e){
-  let r=canvas.getBoundingClientRect();
-  let x=(e.touches?e.touches[0].clientX:e.clientX)-r.left;
-  let y=(e.touches?e.touches[0].clientY:e.clientY)-r.top;
-  let s=canvas.clientWidth/tamaño;
-  return {fila:Math.floor(y/s),col:Math.floor(x/s)};
-}
-
-function start(e){
+canvas.onmousedown=e=>{
   active=true;
-  seleccion=[getPos(e)];
-}
+  seleccion=[get(e)];
+};
 
-function move(e){
+canvas.onmousemove=e=>{
   if(!active)return;
 
-  let p=getPos(e);
+  let p=get(e);
   let i=seleccion[0];
 
   let df=p.fila-i.fila;
@@ -371,62 +407,99 @@ function move(e){
   }
 
   dibujar();
-}
+};
 
-function end(){
+canvas.onmouseup=()=>{active=false;check();};
+
+canvas.ontouchstart=e=>{
+  active=true;
+  seleccion=[get(e)];
+};
+
+canvas.ontouchmove=e=>{
+  e.preventDefault();
   if(!active)return;
-  active=false;
-  verificar();
+
+  let p=get(e);
+  let i=seleccion[0];
+
+  let df=p.fila-i.fila;
+  let dc=p.col-i.col;
+
+  if(df===0||dc===0||Math.abs(df)===Math.abs(dc)){
+    seleccion=[];
+    let f=i.fila,c=i.col;
+    let pf=Math.sign(df),pc=Math.sign(dc);
+
+    while(true){
+      seleccion.push({fila:f,col:c});
+      if(f===p.fila&&c===p.col)break;
+      f+=pf;c+=pc;
+    }
+  }
+
+  dibujar();
+};
+
+canvas.ontouchend=()=>{active=false;check();};
+
+function get(e){
+  let r=canvas.getBoundingClientRect();
+  let x=(e.touches?e.touches[0].clientX:e.clientX)-r.left;
+  let y=(e.touches?e.touches[0].clientY:e.clientY)-r.top;
+  let s=canvas.clientWidth/tamaño;
+
+  return {fila:Math.floor(y/s),col:Math.floor(x/s)};
 }
 
-function verificar(){
-  let palabra=seleccion.map(c=>grid[c.fila][c.col]).join("");
-  let rev=[...seleccion].reverse().map(c=>grid[c.fila][c.col]).join("");
+/* ===== CHECK ===== */
+function check(){
+  let w=seleccion.map(c=>grid[c.fila][c.col]).join("");
+  let r=[...seleccion].reverse().map(c=>grid[c.fila][c.col]).join("");
 
-  let ok = palabras.includes(palabra)?palabra:
-           palabras.includes(rev)?rev:null;
+  let ok=palabras.includes(w)?w:
+         palabras.includes(r)?r:null;
 
   if(ok && !encontradas.includes(ok)){
     encontradas.push(ok);
     marcadas.push(...seleccion);
     okSound();
-    icono("✔️");
-  } else {
-    error=[...seleccion];
+    icon("✔️");
+  }else{
     noSound();
-    icono("❌");
-
+    icon("❌");
     canvas.classList.add("shake");
     setTimeout(()=>canvas.classList.remove("shake"),300);
-    setTimeout(()=>{error=[];dibujar();},300);
   }
 
   seleccion=[];
-  actualizar();
   dibujar();
+  lista();
 
   if(encontradas.length===palabras.length){
-    finalJuego();
+    finish();
   }
 }
 
-function finalJuego(){
+/* ===== FINAL ===== */
+function finish(){
   clearInterval(intervalo);
 
-  let pos = guardarRanking(nombre, tiempo);
-  let lugar = pos==1?"🥇":pos==2?"🥈":pos==3?"🥉":"#"+pos;
+  let pos=guardarRanking(nombre,tiempo);
+
+  let emoji=pos==1?"🥇":pos==2?"🥈":pos==3?"🥉":"🏅";
 
   document.getElementById("resultado").innerHTML=
-    `⏱️ ${document.getElementById("tiempo").innerText}<br>🏆 ${lugar}`;
+  `⏱️ ${document.getElementById("tiempo").innerText}<br>${emoji} Lugar #${pos}`;
 
   document.getElementById("final").style.display="flex";
 
-  mostrarRanking(); // 🔥 ACTUALIZA RANKING
   winSound();
+  confeti();
 }
 
-/* UI */
-function icono(t){
+/* ===== UI ===== */
+function icon(t){
   let d=document.createElement("div");
   d.className="icono";
   d.innerHTML=t;
@@ -436,17 +509,15 @@ function icono(t){
   setTimeout(()=>d.remove(),600);
 }
 
-function actualizar(){
-  document.getElementById("lista").innerHTML =
-    palabras.map((p,i)=>{
-      let ok=encontradas.includes(p);
-      return `<div class="word ${ok?'ok':''}">
-                ${i+1}. ${p}
-              </div>`;
-    }).join("");
+function lista(){
+  document.getElementById("lista").innerHTML=
+  palabras.map((p,i)=>{
+    let ok=encontradas.includes(p);
+    return `<div class="word ${ok?'ok':''}">${i+1}. ${p}</div>`;
+  }).join("");
 }
 
-function iniciarTiempo(){
+function timer(){
   intervalo=setInterval(()=>{
     tiempo++;
     document.getElementById("tiempo").innerText=
