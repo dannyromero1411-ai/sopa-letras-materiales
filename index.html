@@ -55,6 +55,7 @@ canvas{
   display:grid;
   grid-template-columns:1fr 1fr;
   gap:6px;
+  text-align:left;
 }
 
 .word.ok{
@@ -62,13 +63,6 @@ canvas{
   text-decoration:line-through;
   border-radius:6px;
   padding:2px;
-}
-
-#rankingInicio{
-  margin-top:15px;
-  background:white;
-  padding:10px;
-  border-radius:10px;
 }
 
 #inicio{
@@ -82,17 +76,31 @@ canvas{
   z-index:9999;
 }
 
+#ranking{
+  margin-top:15px;
+  background:white;
+  padding:10px;
+  border-radius:10px;
+  width:80%;
+  max-width:300px;
+  text-align:left;
+}
+
 #final{
   position:fixed;
   inset:0;
-  background:rgba(0,0,0,0.85);
+  background:rgba(0,0,0,0.9);
   display:none;
   justify-content:center;
   align-items:center;
   flex-direction:column;
   color:white;
   z-index:99999;
+  text-align:center;
 }
+
+#final h2{font-size:40px;}
+#resultado{font-size:32px;margin:20px;}
 
 .icono{
   position:fixed;
@@ -112,20 +120,6 @@ canvas{
   50%{transform:translateX(6px);}
   75%{transform:translateX(-6px);}
 }
-
-.confeti{
-  position:fixed;
-  width:8px;
-  height:8px;
-  top:-10px;
-  animation:fall 2s linear forwards;
-}
-@keyframes fall{
-  to{
-    transform:translateY(100vh) rotate(360deg);
-    opacity:0;
-  }
-}
 </style>
 </head>
 
@@ -135,12 +129,13 @@ canvas{
   <h2>🎮 Sopa de Letras</h2>
   <input id="nombreInput" placeholder="Apodo">
   <button onclick="startGame()">Comenzar</button>
-  <div id="rankingInicio"></div>
+
+  <div id="ranking"></div>
 </div>
 
 <div class="container">
   <canvas id="canvas"></canvas>
-  <div style="margin-top:10px;">⏱️ <span id="tiempo">00:00</span></div>
+  <div>⏱️ <span id="tiempo">00:00</span></div>
   <div id="lista"></div>
 </div>
 
@@ -152,26 +147,63 @@ canvas{
 
 <script>
 
-/* ===== APODO ===== */
-let nombreGuardado = localStorage.getItem("jugador");
-
-document.addEventListener("DOMContentLoaded", ()=>{
-  if(nombreGuardado){
-    let input = document.getElementById("nombreInput");
-    input.value = nombreGuardado;
-    input.disabled = true;
-  }
-});
-
 /* ===== VARIABLES ===== */
 let nombre="";
 let tamaño=16;
+
+let palabras=[
+"ALEACIONES","HIERRO","METAL","CARBONO","FUSION",
+"MEZCLA","HOMOGENEA","FERROSO","ESTAÑO",
+"SOLUTO","SOLVENTE","SOLUCION","ACERO","BRONCE","LATON"
+];
+
 let grid=[], seleccion=[], marcadas=[], error=[], encontradas=[];
-let palabras=["ALEACIONES","HIERRO","METAL","CARBONO","FUSION","MEZCLA","HOMOGENEA","FERROSO","ESTAÑO","SOLUTO","SOLVENTE","SOLUCION","ACERO","BRONCE","LATON"];
 let tiempo=0, intervalo;
 
 const canvas=document.getElementById("canvas");
 const ctx=canvas.getContext("2d");
+
+/* ===== RANKING ===== */
+function mostrarRanking(){
+  let ranking = JSON.parse(localStorage.getItem("ranking")) || [];
+
+  let html = "<b>🏆 Ranking</b><br>";
+
+  if(ranking.length === 0){
+    html += "Sin registros";
+  } else {
+    ranking.slice(0,10).forEach((r,i)=>{
+      let tiempo = new Date(r.tiempo*1000).toISOString().substr(14,5);
+      let lugar = i==0?"🥇":i==1?"🥈":i==2?"🥉":"#"+(i+1);
+
+      html += `${lugar} ${r.nombre} - ${tiempo}<br>`;
+    });
+  }
+
+  document.getElementById("ranking").innerHTML = html;
+}
+
+function guardarRanking(nombre, tiempo){
+  let ranking = JSON.parse(localStorage.getItem("ranking")) || [];
+
+  let jugador = ranking.find(r => r.nombre === nombre);
+
+  if(jugador){
+    if(tiempo < jugador.tiempo){
+      jugador.tiempo = tiempo;
+    }
+  } else {
+    ranking.push({nombre, tiempo});
+  }
+
+  ranking.sort((a,b)=>a.tiempo - b.tiempo);
+  localStorage.setItem("ranking", JSON.stringify(ranking));
+
+  return ranking.findIndex(r=>r.nombre===nombre)+1;
+}
+
+/* 🔥 MOSTRAR DESDE EL INICIO */
+mostrarRanking();
 
 /* ===== AUDIO ===== */
 let audio;
@@ -190,50 +222,13 @@ function beep(f,t,v=0.5){
   o.stop(audio.currentTime+t);
 }
 function okSound(){beep(900,0.1);}
-function noSound(){beep(180,0.35,0.9);}
+function noSound(){beep(200,0.4,1);}
 function winSound(){beep(600,0.2);setTimeout(()=>beep(1000,0.2),120);}
-
-/* ===== RANKING ===== */
-function mostrarRanking(){
-  let r=JSON.parse(localStorage.getItem("ranking"))||[];
-  let html="<b>🏆 Ranking</b><br>";
-  if(r.length===0) html+="Sin registros";
-  else r.slice(0,10).forEach((x,i)=>{
-    let t=new Date(x.tiempo*1000).toISOString().substr(14,5);
-    html+=`${i+1}. ${x.nombre} - ${t}<br>`;
-  });
-  document.getElementById("rankingInicio").innerHTML=html;
-}
-
-function guardarRanking(nombre, tiempo){
-  let r=JSON.parse(localStorage.getItem("ranking"))||[];
-  let j=r.find(x=>x.nombre===nombre);
-
-  if(j){
-    if(tiempo<j.tiempo) j.tiempo=tiempo;
-  }else{
-    r.push({nombre,tiempo});
-  }
-
-  r.sort((a,b)=>a.tiempo-b.tiempo);
-  localStorage.setItem("ranking",JSON.stringify(r));
-
-  return r.findIndex(x=>x.nombre===nombre)+1;
-}
-
-window.onload=mostrarRanking;
 
 /* ===== INICIO ===== */
 function startGame(){
-  let input = document.getElementById("nombreInput");
-
-  nombre = input.value;
+  nombre=document.getElementById("nombreInput").value;
   if(!nombre)return;
-
-  if(!localStorage.getItem("jugador")){
-    localStorage.setItem("jugador", nombre);
-    input.disabled = true;
-  }
 
   initAudio();
   document.getElementById("inicio").style.display="none";
@@ -253,23 +248,30 @@ function iniciar(){
   actualizar();
 }
 
+/* CANVAS HD */
 function ajustar(){
-  let s=canvas.clientWidth;
-  canvas.width=s;
-  canvas.height=s;
+  const size=canvas.clientWidth;
+  const dpr=window.devicePixelRatio||1;
+
+  canvas.width=size*dpr;
+  canvas.height=size*dpr;
+
+  canvas.style.width=size+"px";
+  canvas.style.height=size+"px";
+
+  ctx.setTransform(dpr,0,0,dpr,0,0);
 }
 
-function colocar(p){
-  const dirs=[[0,1],[1,0],[1,1],[-1,1]];
-  let ok=false;
+const dirs=[[0,1],[1,0],[1,1],[-1,1],[0,-1],[-1,0],[-1,-1],[1,-1]];
 
+function colocar(p){
+  let ok=false;
   while(!ok){
     let d=dirs[Math.floor(Math.random()*dirs.length)];
     let f=Math.floor(Math.random()*tamaño);
     let c=Math.floor(Math.random()*tamaño);
 
     let posible=true;
-
     for(let i=0;i<p.length;i++){
       let nf=f+d[0]*i,nc=c+d[1]*i;
       if(nf<0||nc<0||nf>=tamaño||nc>=tamaño||grid[nf][nc]!=""){
@@ -287,21 +289,21 @@ function colocar(p){
 }
 
 function rellenar(){
-  const letras="ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  const letras="ABCDEFGHIJKLMNOPQRSTUVWXYZÑ";
   for(let i=0;i<tamaño;i++){
     for(let j=0;j<tamaño;j++){
       if(grid[i][j]==""){
-        grid[i][j]=letras[Math.floor(Math.random()*26)];
+        grid[i][j]=letras[Math.floor(Math.random()*letras.length)];
       }
     }
   }
 }
 
 function dibujar(){
-  let s=canvas.width/tamaño;
+  let s=canvas.clientWidth/tamaño;
 
   ctx.clearRect(0,0,canvas.width,canvas.height);
-  ctx.font=(s*0.6)+"px Arial";
+  ctx.font=(s*0.65)+"px Arial";
   ctx.textAlign="center";
   ctx.textBaseline="middle";
 
@@ -338,7 +340,7 @@ function getPos(e){
   let r=canvas.getBoundingClientRect();
   let x=(e.touches?e.touches[0].clientX:e.clientX)-r.left;
   let y=(e.touches?e.touches[0].clientY:e.clientY)-r.top;
-  let s=canvas.width/tamaño;
+  let s=canvas.clientWidth/tamaño;
   return {fila:Math.floor(y/s),col:Math.floor(x/s)};
 }
 
@@ -411,7 +413,7 @@ function verificar(){
 function finalJuego(){
   clearInterval(intervalo);
 
-  let pos=guardarRanking(nombre,tiempo);
+  let pos = guardarRanking(nombre, tiempo);
   let lugar = pos==1?"🥇":pos==2?"🥈":pos==3?"🥉":"#"+pos;
 
   document.getElementById("resultado").innerHTML=
@@ -419,10 +421,11 @@ function finalJuego(){
 
   document.getElementById("final").style.display="flex";
 
+  mostrarRanking(); // 🔥 ACTUALIZA RANKING
   winSound();
-  confeti();
 }
 
+/* UI */
 function icono(t){
   let d=document.createElement("div");
   d.className="icono";
@@ -434,10 +437,12 @@ function icono(t){
 }
 
 function actualizar(){
-  document.getElementById("lista").innerHTML=
-    palabras.map(p=>{
+  document.getElementById("lista").innerHTML =
+    palabras.map((p,i)=>{
       let ok=encontradas.includes(p);
-      return `<div class="word ${ok?'ok':''}">${p}</div>`;
+      return `<div class="word ${ok?'ok':''}">
+                ${i+1}. ${p}
+              </div>`;
     }).join("");
 }
 
@@ -447,17 +452,6 @@ function iniciarTiempo(){
     document.getElementById("tiempo").innerText=
       new Date(tiempo*1000).toISOString().substr(14,5);
   },1000);
-}
-
-function confeti(){
-  for(let i=0;i<80;i++){
-    let d=document.createElement("div");
-    d.className="confeti";
-    d.style.left=Math.random()*100+"vw";
-    d.style.background=`hsl(${Math.random()*360},70%,60%)`;
-    document.body.appendChild(d);
-    setTimeout(()=>d.remove(),2000);
-  }
 }
 
 </script>
