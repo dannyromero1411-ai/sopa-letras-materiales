@@ -100,6 +100,29 @@ canvas{
   z-index:99999;
   text-align:center;
 }
+#final h2{
+  font-size:32px;
+  margin-bottom:10px;
+  animation: pop 0.5s ease;
+}
+
+#resultado{
+  margin-top:10px;
+  font-size:18px;
+  line-height:1.6;
+  background:rgba(255,255,255,0.1);
+  padding:15px;
+  border-radius:12px;
+  backdrop-filter: blur(6px);
+}
+
+#final button{
+  margin-top:20px;
+  background:#2f5d3a;
+  padding:12px 25px;
+  border-radius:12px;
+  font-size:16px;
+}
 
 /* ANIMACIONES */
 .icono{
@@ -143,6 +166,30 @@ canvas{
 
 <body>
 
+</style>
+</head>
+
+<body>
+
+<!-- 🔥 AQUÍ VA FIREBASE -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+
+<script>
+const firebaseConfig = {
+  apiKey: "TU_API_KEY",
+  authDomain: "sopa-de-letras-6680c.firebaseapp.com",
+  databaseURL: "https://sopa-de-letras-6680c-default-rtdb.firebaseio.com",
+  projectId: "sopa-de-letras-6680c",
+  storageBucket: "sopa-de-letras-6680c.appspot.com",
+  messagingSenderId: "869016614040",
+  appId: "1:869016614040:web:b2b818f61578539f170ced"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+</script>
+
 <div id="inicio">
   <h2>🎮 Sopa de Letras</h2>
   <input id="nombreInput" placeholder="Apodo">
@@ -151,6 +198,7 @@ canvas{
 </div>
 
 <div class="container">
+<h2 id="tituloJuego"> Sopa de Letras</h2>
   <canvas id="canvas"></canvas>
   <div>⏱️ <span id="tiempo">00:00</span></div>
   <div id="lista"></div>
@@ -161,6 +209,10 @@ canvas{
   <div id="resultado"></div>
   <button onclick="location.reload()">Reiniciar</button>
 </div>
+
+<button id="adminBtn" style="opacity:1; position:fixed; bottom:10px; right:10px; z-index:999999;">
+⚙️ ADMIN
+</button>
 
 <script>
 
@@ -237,37 +289,94 @@ function confeti(){
 }
 
 /* ===== RANKING ===== */
-function guardarRanking(nombre,tiempo){
-  let r=JSON.parse(localStorage.getItem("ranking"))||[];
-  let j=r.find(x=>x.nombre===nombre);
+function guardarRanking(nombre, tiempo){
 
-  if(j){
-    if(tiempo<j.tiempo) j.tiempo=tiempo;
-  }else{
-    r.push({nombre,tiempo});
-  }
+  const ref = db.ref("ranking/" + nombre);
 
-  r.sort((a,b)=>a.tiempo-b.tiempo);
-  localStorage.setItem("ranking",JSON.stringify(r));
+  ref.once("value", snapshot => {
 
-  return r.findIndex(x=>x.nombre===nombre)+1;
+    if(snapshot.exists()){
+      let tiempoGuardado = snapshot.val().tiempo;
+
+      // ⏱️ Solo guardar si es mejor (menor tiempo)
+      if(tiempo < tiempoGuardado){
+        ref.set({
+          nombre: nombre,
+          tiempo: tiempo
+        });
+      }
+
+    } else {
+      // 🆕 Si no existe, lo crea
+      ref.set({
+        nombre: nombre,
+        tiempo: tiempo
+      });
+    }
+
+  });
 }
 
 function mostrarRanking(){
-  let r=JSON.parse(localStorage.getItem("ranking"))||[];
-  let html="<b>🏆 Ranking</b><br>";
 
-  if(!r.length) html+="Sin registros";
-  else r.slice(0,10).forEach((x,i)=>{
-    let t=new Date(x.tiempo*1000).toISOString().substr(14,5);
-    let e=i==0?"🥇":i==1?"🥈":i==2?"🥉":"🏅";
-    html+=`${e} ${x.nombre} - ${t}<br>`;
-  });
+  db.ref("ranking")
+    .orderByChild("tiempo")
+    .limitToFirst(10)
+    .on("value", snapshot => {
 
-  document.getElementById("ranking").innerHTML=html;
+      let data = [];
+
+      snapshot.forEach(child => {
+        data.push(child.val());
+      });
+
+      let html = "<b>🏆 Ranking Global</b><br>";
+
+      if(data.length === 0){
+        html += "Sin registros";
+      } else {
+        data.forEach((x,i)=>{
+          let t = new Date(x.tiempo*1000).toISOString().substr(14,5);
+          let e = i==0?"🥇":i==1?"🥈":i==2?"🥉":"🏅";
+          html += `${e} ${x.nombre} - ${t}<br>`;
+        });
+      }
+
+      document.getElementById("ranking").innerHTML = html;
+    });
 }
 
 mostrarRanking();
+
+const ADMIN_PASS = "alanny"; // 🔑 cámbiala
+
+let clickCount = 0;
+
+const adminBtn = document.getElementById("adminBtn");
+
+adminBtn.addEventListener("click", () => {
+  clickCount++;
+
+  if(clickCount >= 5){
+    clickCount = 0;
+
+    let pass = prompt("🔐 Ingresa contraseña de admin");
+
+    if(pass === ADMIN_PASS){
+
+      if(confirm("⚠️ ¿Seguro que quieres borrar TODO el ranking?")){
+        db.ref("ranking").remove()
+          .then(()=>alert("🔥 Ranking reiniciado"))
+          .catch(err=>console.error(err));
+      }
+
+    } else {
+      alert("❌ Contraseña incorrecta");
+    }
+  }
+
+  setTimeout(()=>clickCount=0, 2000);
+});
 
 /* ===== START ===== */
 function startGame(){
@@ -485,19 +594,42 @@ function check(){
 function finish(){
   clearInterval(intervalo);
 
-  let pos=guardarRanking(nombre,tiempo);
-
-  let emoji=pos==1?"🥇":pos==2?"🥈":pos==3?"🥉":"🏅";
-
-  document.getElementById("resultado").innerHTML=
-  `⏱️ ${document.getElementById("tiempo").innerText}<br>${emoji} Lugar #${pos}`;
-
-  document.getElementById("final").style.display="flex";
+  guardarRanking(nombre, tiempo);
 
   winSound();
   confeti();
+  calcularPosicionFinal();
+
+  document.getElementById("final").style.display = "flex";
 }
 
+function calcularPosicionFinal(){
+
+  db.ref("ranking")
+    .orderByChild("tiempo")
+    .once("value", snapshot => {
+
+      let posicion = 1;
+      let miPosicion = null;
+
+      snapshot.forEach(child => {
+
+        let data = child.val();
+
+        if(data.nombre === nombre && miPosicion === null){
+          miPosicion = posicion;
+        }
+
+        posicion++;
+      });
+
+      document.getElementById("resultado").innerHTML = `
+        👤 Apodo: <b>${nombre}</b><br>
+        ⏱️ Tiempo: <b>${new Date(tiempo*1000).toISOString().substr(14,5)}</b><br>
+        🏆 Posición: <b>#${miPosicion ?? "?"}</b>
+      `;
+    });
+}
 /* ===== UI ===== */
 function icon(t){
   let d=document.createElement("div");
@@ -510,11 +642,28 @@ function icon(t){
 }
 
 function lista(){
-  document.getElementById("lista").innerHTML=
-  palabras.map((p,i)=>{
-    let ok=encontradas.includes(p);
-    return `<div class="word ${ok?'ok':''}">${i+1}. ${p}</div>`;
-  }).join("");
+
+  let col1 = "";
+  let col2 = "";
+
+  for(let i = 0; i < palabras.length; i++){
+
+    let ok = encontradas.includes(palabras[i]);
+
+    let item = `<div class="word ${ok ? 'ok' : ''}">
+                  ${i + 1}. ${palabras[i]}
+                </div>`;
+
+    if(i < 8){
+      col1 += item;   // 1–8
+    } else {
+      col2 += item;   // 9–15
+    }
+  }
+
+  document.getElementById("lista").innerHTML =
+    `<div class="col">${col1}</div>
+     <div class="col">${col2}</div>`;
 }
 
 function timer(){
