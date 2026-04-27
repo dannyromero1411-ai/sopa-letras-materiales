@@ -596,9 +596,12 @@ function finish(){
 
   guardarRanking(nombre, tiempo);
 
+  setTimeout(()=>{
+    calcularPosicionFinal();
+  }, 500); // 👈 espera Firebase
+
   winSound();
   confeti();
-  calcularPosicionFinal();
 
   document.getElementById("final").style.display = "flex";
 }
